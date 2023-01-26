@@ -13,7 +13,8 @@ auto simpleSetup() -> void {
 }
 
 auto dcciSetup() -> void {
-     DCCI.setup(&Serial1, 115200); // sending/recieving data to/from the Olimex
+     DCCI.setup(_DCCSTA);  // setup with default values 
+     // DCCI.setup(&Serial1, 115200); // sending/recieving data to/from the Olimex
 }
 
 void setup() {
