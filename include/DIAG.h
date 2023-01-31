@@ -1,7 +1,9 @@
 /*
- *  © 2023, Gregor Baues. All rights reserved.
+ *  © 2021 Fred Decker
+ *  © 2020 Chris Harlow
+ *  All rights reserved.
  *  
- *  This file is part of the ESP Network Communications Framework for DCC-EX
+ *  This file is part of CommandStation-EX
  *
  *  This is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -19,67 +21,10 @@
 #ifndef DIAG_h
 #define DIAG_h
 
-#include <Arduino.h>
-#include <ArduinoLog.h>
-
-//--------------------
-// Set compilation mode
-
-#define __DEV__ 
-// #define __RELEASE__
-
-//--------------------
-// Set if file, line etc information shall be shown
-#define FLNAME true
-
-#define EH_DW(code) \
-    do              \
-    {               \
-        code        \
-    } while (0) //wraps in a do while(0) so that the syntax is correct.
-
-
-
-#define EH_IFLL(LL,code) if(Log.getLevel() >= LL){code} 
-#define EH_IFFL(FL,code) if(FL == true){code}  //File and Line nuber
-
-#ifdef __RELEASE__
-#define INFO(message...) ;
-#define TRC(message...) ;
-#define WARN(message...) ;
-#define FATAL(message...) ;
-#define ERR(message...) EH_DW(EH_IFLL( LOG_LEVEL_ERROR, Log.printTimestamp(); );\
-                               Log.error("%s:%d:%s",__FILE__,__LINE__,__FUNCTION__); \
-                               EH_IFLL(LOG_LEVEL_ERROR, Log.printLogLevel(Log.getLogOutput(), LOG_LEVEL_ERROR);); \
-                               Log.error(message);)
-#endif
-
-#ifdef __DEV__
-                               // Log.info("%s:%d ",__FILE__,__LINE__); 
-#define INFO(message...) EH_DW(EH_IFLL( LOG_LEVEL_INFO, Log.printTimestamp(); );\
-                               EH_IFFL( FLNAME, Log.info("%s:%d:%s",__FILE__,__LINE__,__FUNCTION__); ); \
-                               EH_IFLL(LOG_LEVEL_INFO, Log.printLogLevel(Log.getLogOutput(), LOG_LEVEL_INFO);); \
-                               Log.info(message);)
-
-#define ERR(message...) EH_DW(EH_IFLL( LOG_LEVEL_ERROR, Log.printTimestamp(); );\
-                               Log.error("%s:%d:%s",__FILE__,__LINE__,__FUNCTION__); \
-                               EH_IFLL(LOG_LEVEL_ERROR, Log.printLogLevel(Log.getLogOutput(), LOG_LEVEL_ERROR);); \
-                               Log.error(message);)
-
-#define WARN(message...) EH_DW(EH_IFLL( LOG_LEVEL_WARNING, Log.printTimestamp(); );\
-                               Log.warning("%s:%d:%s",__FILE__,__LINE__,__FUNCTION__); \
-                               EH_IFLL(LOG_LEVEL_WARNING, Log.printLogLevel(Log.getLogOutput(), LOG_LEVEL_WARNING);); \
-                               Log.warning(message);)
-
-#define TRC(message...) EH_DW(EH_IFLL( LOG_LEVEL_TRACE, Log.printTimestamp(); );\
-                               Log.trace("%s:%d:%s",__FILE__,__LINE__,__FUNCTION__); \
-                               EH_IFLL(LOG_LEVEL_TRACE, Log.printLogLevel(Log.getLogOutput(), LOG_LEVEL_TRACE);); \
-                               Log.trace(message);)
-
-#define FATAL(message...) EH_DW(EH_IFLL( LOG_LEVEL_FATAL, Log.printTimestamp(); );\
-                               Log.fatal("%s:%d:%s",__FILE__,__LINE__,__FUNCTION__); \
-                               EH_IFLL(LOG_LEVEL_FATAL, Log.printLogLevel(Log.getLogOutput(), LOG_LEVEL_FATAL);); \
-                               Log.fatal(message);)
-#endif
+// #include "StringFormatter.h"
+#include "DCSIlog.h"
+#define DIAG  DCSILog::diag             // send all diags to the queue; maybe we can chain things and do both
+// #define DIAG  StringFormatter::diag  // Original from the CommandStation Code
+#define LCD   StringFormatter::lcd
 
 #endif

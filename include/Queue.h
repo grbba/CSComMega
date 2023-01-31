@@ -27,7 +27,8 @@
 #define ARDUINO_QUEUE_H
 
 #include <Arduino.h>
-#include <DIAG.h>
+#include <DCSIconfig.h>
+#include <DCSIlog.h>
 
 // Queue capacity is S - 1
 template <typename T, size_t S>
@@ -113,7 +114,8 @@ public:
  * 
  * @return size_t 
  */
-  size_t capacity() const {
+  size_t capacity() const 
+  {
     return capacity_;
   }
 };
