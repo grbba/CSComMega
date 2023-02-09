@@ -43,11 +43,4 @@ void setup() {
 
 void loop() {
     DCCI.loop();
-    // testDiag();
-    // use below for testing in case things seemingly are broken;
-    // must be called to trigger callback and publish data
-    // MsgPacketizer::update();
-    // or you can call parse() and post() separately
-    // MsgPacketizer::parse();  // must be called to trigger callback
-    // MsgPacketizer::post(); // must be called to publish
 }
