@@ -28,6 +28,7 @@
 #define HashMap_h
 
 #include <Arduino.h>
+#include <DCSIlog.h>
 
 template <typename K, typename T, int N>
 class HashMap {
@@ -69,7 +70,7 @@ class HashMap {
     }
 
     void put(K key, T value) {
-        // std::cout << "Adding " << key << "check ref " << static_cast<Command *>(value)->name << std::endl;
+      
       int h = hash(key);
       int i = h;
       while (entries[i].used && !compareKeys(entries[i].key,key,compare)) {

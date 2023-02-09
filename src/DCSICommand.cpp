@@ -4,6 +4,7 @@
 #include <DCSICommand.h>
 
 Queue<char *, MAX_PARAMS + 1> Commands::pq;
+_CommandMap Commands::CommandMap;
 
 // fwd decl
 void removeChars(char *str, char *remove);
@@ -31,10 +32,9 @@ void Commands::run(const char *cmd)
   prepare(buffer);
   const char *c = pq.pop(); // command the rest of the params are still in the queue
 
-  if (CommandMap.containsKey((char *)c))
+  if (Commands::CommandMap.containsKey((char *)c))
   {
-
-    Command *cmd = CommandMap.get((char *)c); // get the command from the Map
+    Command *cmd = Commands::CommandMap.get((char *)c); // get the command from the Map
     cmd->exec(Commands::getCommandParams());  // execute the command found
   }
   else
@@ -73,11 +73,13 @@ int handletl(paramType &ptlist, CommandParams &p)
   int ll = atoi(p.pop());
   dccLog.setLevel(ll);
 
-  INFO("INFO message");
-  WARN("WARN message");
-  FATAL("FATAL message");
-  ERR("ERR message");
-  TRC("TRC message");
+  FATAL("1: FATAL message" CR);
+  WARN("2: WARN message" CR);
+  ERR("3 :ERR message" CR);
+  INFO("4: INFO message" CR);
+  TRC("5: TRC message" CR);
+
+  p.clear();
 
   return 1;
 }
@@ -94,7 +96,7 @@ static const Command diag((char *)"dia", handleDiag, paramType::NUM_T);
  * @brief set the loglevel on the CommandStation
  *
  */
-static const Command llv((char *)"llv", handleLLV, paramType::NUM_T);
+static const Command logl((char *)"llv", handleLLV, paramType::NUM_T);
 
 static const Command testlog((char *)"tl", handletl, paramType::NUM_T);
 

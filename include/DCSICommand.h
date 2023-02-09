@@ -4,13 +4,14 @@
 #include <Arduino.h>
 #include <DCSIconfig.h>
 #include <DCSIlog.h>
-#include <HashMap.h>
+// #include <HashMap.h>
+#include <Map.h>
 #include <Queue.h>
 
 // The number of commands the interface supports
 // to be changed according to the numnr of commands
 // defined in the cpp file
-#define MAX_COMMANDS 2
+#define MAX_COMMANDS 5
 // max number of parameters for a handler
 #define MAX_PARAMS 5
 // max length of a command name
@@ -33,14 +34,13 @@ using CommandHandler = int (*)(paramType &, CommandParams &);
 // forward declaration of the Command
 class Command;
 
+
 typedef HashMap<char *, Command *, MAX_COMMANDS> _CommandMap;
-static _CommandMap CommandMap;
-// map holding all commands. Will be constructed at inital construction of the commands
-// as defined in the cpp file
 
 class Commands
 {
 private:
+    static _CommandMap CommandMap;
     static CommandParams pq;
     static void prepare(char *cmd); // once a command recieved / prepare for execution i.e.
                                     // fill the queue with the command found and the
@@ -49,6 +49,9 @@ public:
     static void run(const char *cmd);
     static CommandParams *getCommandParams() {
         return &pq;
+    }
+    static _CommandMap *getCommandMap() {
+        return &CommandMap;
     }
 };
 
@@ -97,7 +100,7 @@ public:
         strncpy(name, n, 3); // set the name
         processTypes(p...);  // initalize the array with the types of the arguments
         f = c;               // set the handler for the command
-        CommandMap.put(name, &self()); // add the command to the commands map
+        Commands::getCommandMap()->put(name, &self()); // add the command to the commands map
     };
 };
 
