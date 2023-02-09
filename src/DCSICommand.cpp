@@ -4,7 +4,9 @@
 #include <DCSICommand.h>
 
 Queue<char *, MAX_PARAMS + 1> Commands::pq;
-_CommandMap Commands::CommandMap;
+char *Commands::CommandNames[MAX_COMMANDS];
+Command *Commands::CommandRef[MAX_COMMANDS];
+int Commands::count;
 
 // fwd decl
 void removeChars(char *str, char *remove);
@@ -21,7 +23,18 @@ void Commands::prepare(char *cmd)
     Cmds.pq.push(token);
   }
 }
-
+CommandParams *Commands::getCommandParams() {
+  return &pq;
+}
+void Commands::insert(Command *c)
+{
+  if (count == MAX_COMMANDS)
+    return; // array is full cant insert anything
+  Commands::CommandNames[count] = (char *)c->getName();
+  Commands::CommandRef[count] = c;
+  Commands::count++;
+  return;
+}
 void Commands::run(const char *cmd)
 {
 
@@ -32,10 +45,12 @@ void Commands::run(const char *cmd)
   prepare(buffer);
   const char *c = pq.pop(); // command the rest of the params are still in the queue
 
-  if (Commands::CommandMap.containsKey((char *)c))
+  // get the command from the Map
+  Command *cm = Commands::find((char *)c);
+
+  if (cm != nullptr)
   {
-    Command *cmd = Commands::CommandMap.get((char *)c); // get the command from the Map
-    cmd->exec(Commands::getCommandParams());  // execute the command found
+    cm->exec(Commands::getCommandParams()); // execute the command found
   }
   else
   {
@@ -43,6 +58,17 @@ void Commands::run(const char *cmd)
     pq.clear(); // clear the queue
     return;
   }
+}
+Command *Commands::find(char *c)
+{
+  int i = 0;
+  while (strcmp(CommandNames[i], c) != 0)
+  {
+    i++;
+    if (i == MAX_COMMANDS)
+      return nullptr;
+  }
+  return CommandRef[i];
 }
 
 /*--------------------------------------------------------*/
@@ -54,21 +80,18 @@ int handleLLV(paramType &ptlist, CommandParams &p)
   p.clear(); // clear the queue; not necessary if we handle the command properly
   return 1;
 }
-
 int handleDiag(paramType &ptlist, CommandParams &p)
 {
   INFO("Executing Diag" CR);
   int ll = atoi(p.pop());
   Log.setLevel(ll);
 
-  TRC(F("LogLevel set from %d to %d" CR), dccLog.getLevel(), ll );
- 
+  TRC(F("LogLevel set from %d to %d" CR), dccLog.getLevel(), ll);
 
   p.clear(); // clear the queue; not necessary if we handle the command properly
   return 1;
 }
-
-int handletl(paramType &ptlist, CommandParams &p) 
+int handletl(paramType &ptlist, CommandParams &p)
 {
   int ll = atoi(p.pop());
   dccLog.setLevel(ll);
@@ -83,6 +106,7 @@ int handletl(paramType &ptlist, CommandParams &p)
 
   return 1;
 }
+
 /*--------------------------------------------------------*/
 // Declare Commands we understand
 /*--------------------------------------------------------*/
@@ -99,7 +123,6 @@ static const Command diag((char *)"dia", handleDiag, paramType::NUM_T);
 static const Command logl((char *)"llv", handleLLV, paramType::NUM_T);
 
 static const Command testlog((char *)"tl", handletl, paramType::NUM_T);
-
 
 // Helper functions
 void removeChars(char *str, char *remove)

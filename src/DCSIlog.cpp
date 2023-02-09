@@ -14,7 +14,6 @@ unsigned int FSHlength(const __FlashStringHelper * FSHinput) {
   }
   return stringLength;
 }
-
 /**
  * @brief dropin replacement for the StringFormatter::diag in the DIAG.h file of the CS
  * This way all DIAG output will be send to the _NWSTA for display/further processing 
@@ -61,7 +60,6 @@ void DCSILog::diag(const FSH *input...)
     // queue the string to be send  with protocol DIAG
     // if we send messages from the interface the use DCSILOG as protocol
 }
-
 /**
  * @brief the idea is to just sen ids for error & warnings in order to keep the code on the CS clean and less cluttered
  * but at the same time for dev mode we'd like to get the full set of data according to the loglevel.
