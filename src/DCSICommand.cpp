@@ -1,3 +1,28 @@
+/**
+ * @file DCSICommand.cpp
+ * @author Gregor Baues
+ * @brief 
+ * @version 0.1
+ * @date 2023-02-09
+ * 
+ * @copyright Copyright (c) 2023
+ *
+ * This is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
+ *
+ * See the GNU General Public License for more details <https://www.gnu.org/licenses/>
+ * 
+ */
 
 #include <Queue.h>
 #include <DCSIlog.h>
@@ -76,34 +101,17 @@ Command *Commands::find(char *c)
 /*--------------------------------------------------------*/
 int handleLLV(paramType &ptlist, CommandParams &p)
 {
-  INFO("Executing LLV" CR);
+  int ll = atoi(p.pop());
+  INFO(F("LogLevel changed from %d to %d" CR), dccLog.getLevel(), ll);
+  dccLog.setLevel(ll);
   p.clear(); // clear the queue; not necessary if we handle the command properly
   return 1;
 }
 int handleDiag(paramType &ptlist, CommandParams &p)
 {
-  INFO("Executing Diag" CR);
   int ll = atoi(p.pop());
-  Log.setLevel(ll);
-
-  TRC(F("LogLevel set from %d to %d" CR), dccLog.getLevel(), ll);
-
+  INFO(F("DIAG messages will be send to client %d" CR), ll);
   p.clear(); // clear the queue; not necessary if we handle the command properly
-  return 1;
-}
-int handletl(paramType &ptlist, CommandParams &p)
-{
-  int ll = atoi(p.pop());
-  dccLog.setLevel(ll);
-
-  FATAL("1: FATAL message" CR);
-  WARN("2: WARN message" CR);
-  ERR("3 :ERR message" CR);
-  INFO("4: INFO message" CR);
-  TRC("5: TRC message" CR);
-
-  p.clear();
-
   return 1;
 }
 
@@ -115,14 +123,13 @@ int handletl(paramType &ptlist, CommandParams &p)
  * message e;g. <! diag 1>. When the comm part of on the CS sends a diag message the
  * client will be set to the id provided here.
  */
-static const Command diag((char *)"dia", handleDiag, paramType::NUM_T);
+static const Command diag((char *)"diag", handleDiag, paramType::NUM_T);
 /**
  * @brief set the loglevel on the CommandStation
  *
  */
 static const Command logl((char *)"llv", handleLLV, paramType::NUM_T);
 
-static const Command testlog((char *)"tl", handletl, paramType::NUM_T);
 
 // Helper functions
 void removeChars(char *str, char *remove)
