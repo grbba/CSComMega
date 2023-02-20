@@ -44,8 +44,9 @@ DCCNetwork *network = NetworkInterface::getDCCNetwork();
 
 /**
  * @brief callback function upon reception of a DccMessage. Adds the message into the incomming queue
- * Queue elements will be processed then in the recieve() function called form the loop()
- *
+ * Queue elements will be processed then in the recieve() function called form the loop(). This function is on both sides
+ * of the com link i.e. on the commandstation and the networkstation. It will not be used for messages comming from 
+ * Wifi or the ethernet connection( or serial )
  * @param msg DccMessage object deliverd by MsgPacketizer
  */
 void foofunc2(DccMessage msg)
@@ -208,7 +209,7 @@ void DccExInterface::loop()
 auto DccExInterface::decode(csProtocol p) -> const char *
 {
     // need to check if p is a valid enum value
-    if ((p > 4) || (p < 0))
+    if ((p >= UNKNOWN_CS_PROTOCOL) || (p < 0))
     {
         ERR(F("Cannot decode csProtocol %d returning unkown"), p);
         return csProtocolNames[UNKNOWN_CS_PROTOCOL];
@@ -218,7 +219,7 @@ auto DccExInterface::decode(csProtocol p) -> const char *
 auto DccExInterface::decode(comStation s) -> const char *
 {
     // need to check if p is a valid enum value
-    if ((s > 3) || (s < 0))
+    if ((s >= _UNKNOWN_STA) || (s < 0))
     {
         ERR(F("Cannot decode comStation %d returning unkown"), s);
         return comStationNames[_UNKNOWN_STA];

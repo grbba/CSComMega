@@ -76,6 +76,7 @@ public:
     head_ = (head_ + 1) % S;
     return element;
   }
+  
   T peek()
   {
       if (isEmpty()) {

@@ -58,6 +58,7 @@ typedef enum
  * the networkstation will function as MQTT & HTTP endpoint and only transmit the the DCCEX type commands
  * the API endpoint will translate to DCCEX commands no WITHROTTLE over HTTP and/or MQTT yet
  */
+#ifdef DCCI_CS
 typedef enum
 {
     _DCCEX,          //< > encoded
@@ -69,7 +70,7 @@ typedef enum
     _CTRL,           // to be set when sending to the CS if the the msg send starts with "<!" avoids the need to do the check on the CS
     UNKNOWN_CS_PROTOCOL  // DO NOT remove; used for sizing and testing conditions
 } csProtocol;
-
+#endif
 #define HANDLERS  \
     static void dccexHandler(DccMessage m); \
     static void wiThrottleHandler(DccMessage m); \
