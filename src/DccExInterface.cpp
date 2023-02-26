@@ -45,7 +45,7 @@ DCCNetwork *network = NetworkInterface::getDCCNetwork();
 /**
  * @brief callback function upon reception of a DccMessage. Adds the message into the incomming queue
  * Queue elements will be processed then in the recieve() function called form the loop(). This function is on both sides
- * of the com link i.e. on the commandstation and the networkstation. It will not be used for messages comming from 
+ * of the com link i.e. on the commandstation and the networkstation. It will not be used for messages comming from
  * Wifi or the ethernet connection( or serial )
  * @param msg DccMessage object deliverd by MsgPacketizer
  */
@@ -61,7 +61,6 @@ void foofunc2(DccMessage msg)
 
         TRC(F("Recieved from [%s]:[%d:%d:%d:%d]: %s" CR), DCCI.decode(static_cast<comStation>(msg.sta)), DCCI.getQueue(IN)->size(), msg.mid, msg.client, msg.p, msg.msg.c_str());
         DCCI.getQueue(IN)->push(msg); // push the message into the incomming queue
-        // TRC(F(" Memory ->" CR));
     }
     else
     {
@@ -107,7 +106,7 @@ auto DccExInterface::recieve() -> void
         handlers[m.p](m);
     }
     return;
-}    
+}
 /**
  * @brief creates a DccMessage and adds it to the outgoing queue
  *
@@ -226,7 +225,7 @@ auto DccExInterface::decode(comStation s) -> const char *
     }
     return comStationNames[s];
 }
-auto DccExInterface::dccexHandler(DccMessage m) -> void
+auto DccExInterface::dccexHandler(DccMessage &m) -> void
 {
     INFO(F("Processing message from [%s]:[%s]" CR), DCCI.decode(static_cast<comStation>(m.sta)), m.msg.c_str());
     // send to the DCC part he commands and get the reply
@@ -234,29 +233,33 @@ auto DccExInterface::dccexHandler(DccMessage m) -> void
     sprintf(buffer, "reply from CS: %d:%d:%s", m.client, m.mid, m.msg.c_str());
     DCCI.queue(m.client, _REPLY, buffer);
 };
-auto DccExInterface::wiThrottleHandler(DccMessage m) -> void{};
-auto DccExInterface::ctrlHandler(DccMessage m) -> void {
+auto DccExInterface::wiThrottleHandler(DccMessage &m) -> void{};
+auto DccExInterface::ctrlHandler(DccMessage &m) -> void
+{
     // where does the message come from
-    INFO(F("Recieved CTRL message from %s" CR), DCCI.decode((comStation) m.sta));
-    switch(m.sta) {
-        case _DCCSTA: {
-            // we are on the NW station handling a message from the commandstation
-            break;
-        }
-        case _NWSTA: {
-            TRC(F("Executing CTRL message %s" CR), m.msg.c_str());
-            Cmds.run(m.msg.c_str());
-            // we are on the CommandStation handling a message from the NetworkStation
-            // so the message shall have the form <! opcode yy zz >
-            // get the opcode and get the function to handle it from the opcode hashmap
-            // opcodes is until the first whitespace in the command afetr the !
-            // timming all leading spaces away
-        
-            break;
-        }
+    INFO(F("Recieved CTRL message from %s" CR), DCCI.decode((comStation)m.sta));
+    switch (m.sta)
+    {
+    case _DCCSTA:
+    {
+        // we are on the NW station handling a message from the commandstation
+        break;
+    }
+    case _NWSTA:
+    {
+        TRC(F("Executing CTRL message %s" CR), m.msg.c_str());
+        Cmds.run(m.msg.c_str());
+        // we are on the CommandStation handling a message from the NetworkStation
+        // so the message shall have the form <! opcode yy zz >
+        // get the opcode and get the function to handle it from the opcode hashmap
+        // opcodes is until the first whitespace in the command afetr the !
+        // timming all leading spaces away
+
+        break;
+    }
     }
 };
-auto DccExInterface::notYetHandler(DccMessage m) -> void
+auto DccExInterface::notYetHandler(DccMessage &m) -> void
 {
     if (m.p == UNKNOWN_CS_PROTOCOL)
     {
@@ -326,7 +329,8 @@ auto DccExInterface::replyHandler(DccMessage m) -> void
         }
     }
 }
-auto DccExInterface::diagHandler(DccMessage m) -> void{
+auto DccExInterface::diagHandler(DccMessage m) -> void
+{
     INFO(F("Recieved DIAG: %s" CR), m.msg.c_str());
 };
 #endif
