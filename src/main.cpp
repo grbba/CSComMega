@@ -14,21 +14,24 @@
 //     MsgPacketizer::subscribe(Serial1, DCCI.recv_index, &foofunc);
 // }
 
-auto dcciSetup() -> void {
-     dccLog.begin(LOG_LEVEL_VERBOSE, &Serial, false);
-     DCCI.setup(_DCCSTA);  // setup with default values as CommandStation
-     // DCCI.setup(&Serial1, 115200); // sending/recieving data to/from the Olimex
+auto dcciSetup() -> void
+{
+    dccLog.begin(LOG_LEVEL_VERBOSE, &Serial, false);
+    DCCI.setup(_DCCSTA); // setup with default values as CommandStation
+                         // DCCI.setup(&Serial1, 115200); // sending/recieving data to/from the Olimex
 }
 
-void setup() {
+void setup()
+{
     Serial.begin(115200);
     delay(2000);
     // simpleSetup();
-    dcciSetup();
+    MEMC(dcciSetup());
+    // dcciSetup();
 }
 
 // long count = 5; // delay number of times to send diag messages
-// unsigned long d = 5000; // every 5 sec issue one 
+// unsigned long d = 5000; // every 5 sec issue one
 // unsigned long start = millis();
 // void testDiag() {
 
@@ -40,7 +43,7 @@ void setup() {
 //     }
 // }
 
-
-void loop() {
+void loop()
+{
     DCCI.loop();
 }

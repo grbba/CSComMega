@@ -72,12 +72,12 @@ typedef enum
 } csProtocol;
 #endif
 #define HANDLERS  \
-    static void dccexHandler(DccMessage m); \
-    static void wiThrottleHandler(DccMessage m); \
-    static void notYetHandler(DccMessage m); \
-    static void replyHandler(DccMessage m); \
-    static void diagHandler(DccMessage m); \
-    static void ctrlHandler(DccMessage m);
+    static void dccexHandler(DccMessage &m); \
+    static void wiThrottleHandler(DccMessage &m); \
+    static void notYetHandler(DccMessage &m); \
+    static void replyHandler(DccMessage &m); \
+    static void diagHandler(DccMessage &m); \
+    static void ctrlHandler(DccMessage &m);
 
 #ifndef DCCI_CS
 #define HANDLER_INIT  \
@@ -112,7 +112,7 @@ public:
 }; 
 
 typedef Queue<DccMessage, MAX_QUEUE_SIZE> _tDccQueue;
-using  _tcsProtocolHandler = void (*)(DccMessage m);
+using  _tcsProtocolHandler = void (*)(DccMessage &m);
 
 typedef enum
 {

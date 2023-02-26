@@ -21,10 +21,12 @@
 #ifndef DIAG_h
 #define DIAG_h
 
-// #include "StringFormatter.h"
+#include "StringFormatter.h"
 #include "DCSIlog.h"
+
 #define DIAG  DCSILog::diag             // send all diags to the queue; maybe we can chain things and do both
 // #define DIAG  StringFormatter::diag  // Original from the CommandStation Code
+
 #define LCD   StringFormatter::lcd
 
 #endif
