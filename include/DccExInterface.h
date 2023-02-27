@@ -19,6 +19,7 @@
 #define dccex_interface_h
 
 #include <Arduino.h>
+#include <avr/pgmspace.h>
 #include <DCSIlog.h>
 #ifndef DCCI_CS
 #include <Transport.h>
@@ -26,6 +27,22 @@
 #include <DCSIconfig.h>
 #include "MsgPacketizer.h"
 #include "Queue.h"
+
+constexpr char protocol01[] PROGMEM = "DccEx";
+constexpr char protocol02[] PROGMEM = "WiThrottle";
+constexpr char protocol03[] PROGMEM = "Reply";
+constexpr char protocol04[] PROGMEM = "Diag";
+constexpr char protocol05[] PROGMEM = "Mqtt";
+constexpr char protocol06[] PROGMEM = "Http";
+constexpr char protocol07[] PROGMEM = "Ctrl";
+constexpr char protocol08[] PROGMEM = "Unknown";
+
+constexpr char node01[] PROGMEM = "CommandStation";
+constexpr char node02[] PROGMEM = "NetworkProxy";
+constexpr char node03[] PROGMEM = "Unknown";
+
+constexpr char const *csProtocolNames[] PROGMEM = {protocol01, protocol02, protocol03, protocol04, protocol05, protocol06, protocol07, protocol08};
+constexpr char const *comStationNames[] PROGMEM = {node01, node02, node03};
 
 /**
  * @brief comStation is used to identify the type of participant. In general there shall be only
@@ -137,11 +154,12 @@ private:
     uint64_t seq = 0;
     static _tDccQueue incomming;
     static _tDccQueue outgoing;
+    char decodeBuffer[15]; // buffer used for the decodefunctions
 
-    void write();                                                                                          // writes the messages from the outgoing queue to the com protocol endpoint (Serial only
-                                                                                                           // at this point
-    const char *csProtocolNames[8] = {"DCCEX", "WTH", "REPLY", "DIAG", "MQTT", "HTTP", "CTRL", "UNKNOWN"}; // TODO move that to Progmem
-    const char *comStationNames[3] = {"CommandStation", "NetworkStation", "Unknown"};
+    void write(); // writes the messages from the outgoing queue to the com protocol endpoint (Serial only
+                  // at this point
+    // const char *csProtocolNames[8] = {"DCCEX", "WTH", "REPLY", "DIAG", "MQTT", "HTTP", "CTRL", "UNKNOWN"}; // TODO move that to Progmem
+    // const char *comStationNames[3] = {"CommandStation", "NetworkStation", "Unknown"};
 
     HANDLERS;
     HANDLER_INIT;

@@ -42,6 +42,9 @@ DCCNetwork *network = NetworkInterface::getDCCNetwork();
 #include "DccExInterface.h"
 #include "DCSICommand.h"
 
+_tDccQueue DccExInterface::incomming;
+_tDccQueue DccExInterface::outgoing;
+
 /**
  * @brief callback function upon reception of a DccMessage. Adds the message into the incomming queue
  * Queue elements will be processed then in the recieve() function called form the loop(). This function is on both sides
@@ -78,12 +81,10 @@ void foofunc2(DccMessage msg)
 auto DccExInterface::setup(HardwareSerial *_s, uint32_t _speed) -> void
 {
     INFO(F("Setting up DccEx Network interface connection ..." CR));
-    s = _s;                      // Serial port used for com depends on the wiring
-    speed = _speed;              // speed of the connection
-    s->begin(speed);             // start the serial port at the given baud rate
-    outgoing = new _tDccQueue(); // allocate space for the Queues
-    incomming = new _tDccQueue();
-    MsgPacketizer::subscribe(*s, recv_index, &foofunc2);
+    s = _s;          // Serial port used for com depends on the wiring
+    speed = _speed;  // speed of the connection
+    s->begin(speed); // start the serial port at the given baud rate
+    MEMC(MsgPacketizer::subscribe(*s, recv_index, &foofunc2));
     init = true; // interface has been initatlized
     INFO(F("Setup of %s done ..." CR), comStationNames[sta]);
 }
@@ -103,7 +104,7 @@ auto DccExInterface::recieve() -> void
             return;
         }
         INFO("Sending to handler" CR);
-        handlers[m.p](m);
+        MEMC(handlers[m.p](m););
     }
     return;
 }
@@ -118,7 +119,6 @@ void DccExInterface::queue(uint16_t c, csProtocol p, char *msg)
 {
 
     MsgPack::str_t s = MsgPack::str_t(msg);
-
     DccMessage m;
 
     m.sta = static_cast<int>(sta);
@@ -130,7 +130,7 @@ void DccExInterface::queue(uint16_t c, csProtocol p, char *msg)
     INFO(F("Queuing [%d:%d:%s]:[%s]" CR), m.mid, m.client, decode((csProtocol)m.p), m.msg.c_str());
     // MsgPacketizer::send(Serial1, 0x12, m);
 
-    outgoing->push(m);
+    outgoing.push(m);
     return;
 }
 /**
@@ -152,10 +152,10 @@ void DccExInterface::queue(queueType q, csProtocol p, DccMessage packet)
     switch (q)
     {
     case IN:
-        if (!incomming->isFull())
+        if (!incomming.isFull())
         {
             // still space available
-            incomming->push(packet);
+            incomming.push(packet);
         }
         else
         {
@@ -163,10 +163,10 @@ void DccExInterface::queue(queueType q, csProtocol p, DccMessage packet)
         }
         break;
     case OUT:
-        if (!outgoing->isFull())
+        if (!outgoing.isFull())
         {
             // still space available
-            outgoing->push(packet);
+            outgoing.push(packet);
         }
         else
         {
@@ -185,14 +185,14 @@ void DccExInterface::queue(queueType q, csProtocol p, DccMessage packet)
 void DccExInterface::write()
 {
     // while (!outgoing->empty()) {  // empty the queue
-    if (!outgoing->isEmpty())
+    if (!outgoing.isEmpty())
     { // be nice and only write one at a time
         // only send to the Serial port if there is something in the queu
         // TRC(F(" -> Memory" CR));
-        DccMessage m = outgoing->pop();
-        TRC(F("Sending [%d:%d:%d]: %s" CR), m.mid, m.client, m.p, m.msg.c_str());
-        // TRC(F("Sending Message... " CR));
-        MsgPacketizer::send(*s, 0x34, m);
+        MEMC(DccMessage m = outgoing.pop();
+             TRC(F("Sending [%d:%d:%d]: %s" CR), m.mid, m.client, m.p, m.msg.c_str());
+             // TRC(F("Sending Message... " CR));
+             MsgPacketizer::send(*s, 0x34, m););
         // TRC(F(" Memory ->" CR));
     }
     return;
@@ -211,9 +211,13 @@ auto DccExInterface::decode(csProtocol p) -> const char *
     if ((p >= UNKNOWN_CS_PROTOCOL) || (p < 0))
     {
         ERR(F("Cannot decode csProtocol %d returning unkown"), p);
-        return csProtocolNames[UNKNOWN_CS_PROTOCOL];
+        strcpy_P(decodeBuffer, csProtocolNames[UNKNOWN_CS_PROTOCOL]);
+        return decodeBuffer;
+        // return csProtocolNames[UNKNOWN_CS_PROTOCOL];
     }
-    return csProtocolNames[p];
+    strcpy_P(decodeBuffer, csProtocolNames[p]);
+    return decodeBuffer;
+    // return csProtocolNames[p];
 }
 auto DccExInterface::decode(comStation s) -> const char *
 {
@@ -221,9 +225,11 @@ auto DccExInterface::decode(comStation s) -> const char *
     if ((s >= _UNKNOWN_STA) || (s < 0))
     {
         ERR(F("Cannot decode comStation %d returning unkown"), s);
-        return comStationNames[_UNKNOWN_STA];
+        strcpy_P(decodeBuffer, comStationNames[_UNKNOWN_STA]);
+        return decodeBuffer;
     }
-    return comStationNames[s];
+    strcpy_P(decodeBuffer, comStationNames[s]);
+    return decodeBuffer;
 }
 auto DccExInterface::dccexHandler(DccMessage &m) -> void
 {

@@ -175,27 +175,6 @@ public:
 
 //--------------------
 
-#ifdef DCCI_CS
-// #define MEMC(code) DCSILog::memchk([&]() { code; });
-
-#define MEMC(code)                                                                                     \
-    {                                                                                                  \
-        Serial.print("--> Check memory start ... \n");                                                 \
-        int before = freeMemory();                                                                     \
-        code;                                                                                          \
-        int after = freeMemory();                                                                      \
-        int delta = after - before;                                                                    \
-        if (delta < 0)                                                                                 \
-        {                                                                                              \
-            delta = delta * -1;                                                                        \
-        }                                                                                              \
-        char b[30];                                                                                    \
-        sprintf(b, "--> %d bytes of memory %s\n", delta, (after - before) < 0 ? "lost" : "recovered"); \
-        Serial.println(b);                                                                             \
-    };
-
-#endif
-
 // Set if file, line etc information shall be shown
 
 #define FLNAME true
@@ -293,6 +272,25 @@ public:
     dccLog.printLogLevel(LOG_LEVEL_FATAL);                                       \
     dccLog.fatal(message);                                                       \
 }))
+#endif
+
+#ifdef DCCI_CS
+// #define MEMC(code) DCSILog::memchk([&]() { code; });
+
+#define MEMC(code)                                                                                  \
+    {                                                                                               \
+        TRC(F("--> Check memory start ..." CR));                                                    \
+        int before = freeMemory();                                                                  \
+        code;                                                                                       \
+        int after = freeMemory();                                                                   \
+        int delta = after - before;                                                                 \
+        if (delta < 0)                                                                              \
+        {                                                                                           \
+            delta = delta * -1;                                                                     \
+        }                                                                                           \
+        TRC(F("--> %d bytes of memory %s" CR), delta, (after - before) < 0 ? "lost" : "recovered"); \
+    };
+
 #endif
 
 extern DCSILog dccLog;
