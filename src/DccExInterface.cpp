@@ -340,7 +340,9 @@ auto DccExInterface::diagHandler(DccMessage m) -> void
     INFO(F("Recieved DIAG: %s" CR), m.msg.c_str());
 };
 #endif
-DccExInterface::DccExInterface(){};
-DccExInterface::~DccExInterface(){};
 
-DccExInterface DCCI = DccExInterface();
+DccExInterface &DccExInterface::GetInstance()
+{
+    static DccExInterface dcciInterface;
+    return dcciInterface;
+}
