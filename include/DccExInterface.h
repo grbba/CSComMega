@@ -88,6 +88,7 @@ typedef enum
     UNKNOWN_CS_PROTOCOL // DO NOT remove; used for sizing and testing conditions
 } csProtocol;
 #endif
+
 #define HANDLERS                                  \
     static void dccexHandler(DccMessage &m);      \
     static void wiThrottleHandler(DccMessage &m); \
@@ -164,11 +165,12 @@ private:
     HANDLERS;
     HANDLER_INIT;
 
-public:
     const uint8_t recv_index = 0x34;
     const uint8_t send_index = 0x12;
 
-    auto getQueue(queueType q) -> _tDccQueue *
+    DccExInterface(){};
+
+    auto IgetQueue(queueType q) -> _tDccQueue *
     {
         switch (q)
         {
@@ -183,29 +185,44 @@ public:
             return nullptr;
         }
     }
+    static void ISetup(comStation station)
+    {
+        sta = station; // sets to network or commandstation mode
+        setup();
+    }
+
+public:
+    DccExInterface(DccExInterface &other) = delete;
+    void operator=(const DccExInterface &) = delete;
+
+    static DccExInterface &GetInstance();
+
+    static auto getQueue(queueType q) -> _tDccQueue *
+    {
+        return (GetInstance().IgetQueue(q));
+    }
     /**
      * @brief pushes a DccMessage struct into the designated queue
      *
      * @param q : incomming or outgoing queue
      * @param packet : DccMessage struct to be pushed and send over the wire
      */
-    void queue(queueType q, csProtocol p, DccMessage packet);
-    void queue(uint16_t c, csProtocol p, char *msg);
-    void recieve(); // check the transport to see if tere is something for us
+    static void queue(queueType q, csProtocol p, DccMessage packet);
+    static void queue(uint16_t c, csProtocol p, char *msg);
+    static void recieve(); // check the transport to see if tere is something for us
     /**
      * @brief setup the serial interface
      *
      * @param *s        - pointer to a serial port. Default is Serial1 as Serial is used for monitor / upload etc..
      * @param speed     - default serial speed is 115200
      */
-    void setup(HardwareSerial *s = &Serial1, uint32_t speed = 115200);
-    void setup(comStation station)
+    static void setup(HardwareSerial *s = &Serial1, uint32_t speed = 115200);
+    static void setup(comStation station)
     {
-        sta = station; // sets to network or commandstation mode
-        setup();
+        GetInstance().ISetup(station);
     }
-    void loop();
-    auto size(queueType inout) -> size_t
+    static void loop();
+    static auto size(queueType inout) -> size_t
     {
         if (inout == IN)
         {
@@ -218,12 +235,8 @@ public:
         ERR(F("Unknown queue in size; specifiy either IN or OUT"));
         return 0;
     }
-    auto decode(csProtocol p) -> const char *;
-    auto decode(comStation s) -> const char *;
-
-    DccExInterface();
-    ~DccExInterface();
+    static auto decode(csProtocol p) -> const char *;
+    static auto decode(comStation s) -> const char *;
 };
 
-extern DccExInterface DCCI;
 #endif
