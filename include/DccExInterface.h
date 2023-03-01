@@ -41,8 +41,8 @@ constexpr char node01[] PROGMEM = "CommandStation";
 constexpr char node02[] PROGMEM = "NetworkProxy";
 constexpr char node03[] PROGMEM = "Unknown";
 
-constexpr char const *csProtocolNames[] PROGMEM = {protocol01, protocol02, protocol03, protocol04, protocol05, protocol06, protocol07, protocol08};
-constexpr char const *comStationNames[] PROGMEM = {node01, node02, node03};
+const char *const csProtocolNames[] PROGMEM = {protocol01, protocol02, protocol03, protocol04, protocol05, protocol06, protocol07, protocol08};
+const char *const comStationNames[] PROGMEM = {node01, node02, node03};
 
 /**
  * @brief comStation is used to identify the type of participant. In general there shall be only
@@ -98,12 +98,12 @@ typedef enum
     static void ctrlHandler(DccMessage &m);
 
 #ifndef DCCI_CS
-#define HANDLER_INIT                                    \
-    _tcsProtocolHandler handlers[UNKNOWN_CS_PROTOCOL] = \
+#define HANDLER_INIT                                          \
+    const _tcsProtocolHandler handlers[UNKNOWN_CS_PROTOCOL] = \
         {dccexHandler, notYetHandler, ctrlHandler, replyHandler, diagHandler, notYetHandler, notYetHandler};
 #else
-#define HANDLER_INIT                                    \
-    _tcsProtocolHandler handlers[UNKNOWN_CS_PROTOCOL] = \
+#define HANDLER_INIT                                          \
+    const _tcsProtocolHandler handlers[UNKNOWN_CS_PROTOCOL] = \
         {dccexHandler, notYetHandler, notYetHandler, notYetHandler, notYetHandler, notYetHandler, ctrlHandler};
 #endif
 //      _DCCEX          _WITHROTTLE,    _REPLY        _DIAG           _MQTT           _HTTP           _CTRL
@@ -153,8 +153,10 @@ private:
     bool blocking = true; // send immediatly & wait for reply from the CS if false all commands
                           // send will be queued and handled in the loop
     uint64_t seq = 0;
-    static _tDccQueue incomming;
-    static _tDccQueue outgoing;
+
+    _tDccQueue incomming;
+    _tDccQueue outgoing;
+
     char decodeBuffer[15]; // buffer used for the decodefunctions
 
     // const char *csProtocolNames[8] = {"DCCEX", "WTH", "REPLY", "DIAG", "MQTT", "HTTP", "CTRL", "UNKNOWN"}; // TODO move that to Progmem
@@ -183,20 +185,21 @@ private:
             return nullptr;
         }
     }
-    void _isetup(HardwareSerial *s = &Serial1, uint32_t speed = 115200);
-    void _iSetup(comStation station)
+    auto _isetup(HardwareSerial *s = &Serial1, uint32_t speed = 115200) -> void;
+    auto _iSetup(comStation station) -> void
     {
         sta = station; // sets to network or commandstation mode
         setup();
     }
-    void _iqueue(queueType q, csProtocol p, DccMessage packet);
-    void _iqueue(uint16_t c, csProtocol p, char *msg);
-    void _iRecieve();
+    auto _iqueue(queueType q, csProtocol p, DccMessage packet) -> void;
+    auto _iqueue(uint16_t c, csProtocol p, char *msg) -> void;
+    auto _iRecieve() -> void;
     auto _iDecode(csProtocol p) -> const char *;
     auto _iDecode(comStation s) -> const char *;
-    void _iLoop();
-    void write(); // writes the messages from the outgoing queue to the com protocol endpoint (Serial only
-                  // at this point
+    auto _iLoop() -> void;
+    auto _iSize(queueType inout) -> size_t;
+    auto write() -> void; // writes the messages from the outgoing queue to the com protocol endpoint (Serial only
+                          // at this point
 
 public:
     DccExInterface(DccExInterface &other) = delete;
@@ -204,44 +207,29 @@ public:
 
     static DccExInterface &GetInstance();
 
-    static auto getQueue(queueType q) -> _tDccQueue *
-    {
-        return (GetInstance()._igetQueue(q));
-    }
+    static auto getQueue(queueType q) -> _tDccQueue * { return (GetInstance()._igetQueue(q)); }
     /**
      * @brief pushes a DccMessage struct into the designated queue
      *
      * @param q : incomming or outgoing queue
      * @param packet : DccMessage struct to be pushed and send over the wire
      */
-    static void queue(queueType q, csProtocol p, DccMessage packet)
+    static auto queue(queueType q, csProtocol p, DccMessage packet) -> void
     {
         GetInstance()._iqueue(q, p, packet);
     }
-    static void queue(uint16_t c, csProtocol p, char *msg) { GetInstance()._iqueue(c, p, msg); }
-    static void recieve() { GetInstance()._iRecieve(); } // check the transport to see if tere is something for us
+    static auto queue(uint16_t c, csProtocol p, char *msg) -> void { GetInstance()._iqueue(c, p, msg); }
+    static auto recieve() -> void { GetInstance()._iRecieve(); } // check the transport to see if tere is something for us
     /**
      * @brief setup the serial interface
      *
      * @param *s        - pointer to a serial port. Default is Serial1 as Serial is used for monitor / upload etc..
      * @param speed     - default serial speed is 115200
      */
-    static void setup(HardwareSerial *s = &Serial1, uint32_t speed = 115200) { GetInstance()._isetup(s, speed); }
-    static void setup(comStation station) { GetInstance()._iSetup(station); }
-    static void loop() { GetInstance()._iLoop(); }
-    static auto size(queueType inout) -> size_t
-    {
-        if (inout == IN)
-        {
-            return incomming.size();
-        }
-        if (inout == OUT)
-        {
-            return outgoing.size();
-        }
-        ERR(F("Unknown queue in size; specifiy either IN or OUT"));
-        return 0;
-    }
+    static auto setup(HardwareSerial *s = &Serial1, uint32_t speed = 115200) -> void { GetInstance()._isetup(s, speed); }
+    static auto setup(comStation station) -> void { GetInstance()._iSetup(station); }
+    static auto loop() -> void { GetInstance()._iLoop(); }
+    static auto size(queueType inout) -> size_t { return GetInstance()._iSize(inout); }
     static auto decode(csProtocol p) -> const char * { return GetInstance()._iDecode(p); }
     static auto decode(comStation s) -> const char * { return GetInstance()._iDecode(s); }
 };

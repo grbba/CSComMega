@@ -42,9 +42,6 @@ DCCNetwork *network = NetworkInterface::getDCCNetwork();
 #include "DccExInterface.h"
 #include "DCSICommand.h"
 
-_tDccQueue DccExInterface::incomming;
-_tDccQueue DccExInterface::outgoing;
-
 /**
  * @brief callback function upon reception of a DccMessage. Adds the message into the incomming queue
  * Queue elements will be processed then in the recieve() function called form the loop(). This function is on both sides
@@ -104,6 +101,7 @@ auto DccExInterface::_iRecieve() -> void
             return;
         }
         INFO("Sending to handler" CR);
+
         MEMC(handlers[m.p](m););
     }
     return;
@@ -211,13 +209,11 @@ auto DccExInterface::_iDecode(csProtocol p) -> const char *
     if ((p >= UNKNOWN_CS_PROTOCOL) || (p < 0))
     {
         ERR(F("Cannot decode csProtocol %d returning unkown"), p);
-        strcpy_P(decodeBuffer, csProtocolNames[UNKNOWN_CS_PROTOCOL]);
+        strcpy_P(decodeBuffer, (char *)pgm_read_word(&(csProtocolNames[UNKNOWN_CS_PROTOCOL])));
         return decodeBuffer;
-        // return csProtocolNames[UNKNOWN_CS_PROTOCOL];
     }
-    strcpy_P(decodeBuffer, csProtocolNames[p]);
+    strcpy_P(decodeBuffer, (char *)pgm_read_word(&(csProtocolNames[p])));
     return decodeBuffer;
-    // return csProtocolNames[p];
 }
 auto DccExInterface::_iDecode(comStation s) -> const char *
 {
@@ -225,10 +221,10 @@ auto DccExInterface::_iDecode(comStation s) -> const char *
     if ((s >= _UNKNOWN_STA) || (s < 0))
     {
         ERR(F("Cannot decode comStation %d returning unkown"), s);
-        strcpy_P(decodeBuffer, comStationNames[_UNKNOWN_STA]);
+        strcpy_P(decodeBuffer, (char *)pgm_read_word(&(comStationNames[_UNKNOWN_STA])));
         return decodeBuffer;
     }
-    strcpy_P(decodeBuffer, comStationNames[s]);
+    strcpy_P(decodeBuffer, (char *)pgm_read_word(&(comStationNames[s])));
     return decodeBuffer;
 }
 auto DccExInterface::dccexHandler(DccMessage &m) -> void
@@ -277,6 +273,20 @@ auto DccExInterface::notYetHandler(DccMessage &m) -> void
     }
     return;
 };
+auto DccExInterface::_iSize(queueType inout) -> size_t
+{
+    if (inout == IN)
+    {
+        return incomming.size();
+    }
+    if (inout == OUT)
+    {
+        return outgoing.size();
+    }
+    ERR(F("Unknown queue in size; specifiy either IN or OUT"));
+    return 0;
+}
+
 #ifndef DCCI_CS // only valid on the NW station
 auto DccExInterface::replyHandler(DccMessage m) -> void
 {
