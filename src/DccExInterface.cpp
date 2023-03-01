@@ -59,11 +59,11 @@ void foofunc2(DccMessage msg)
     // const comStation station = static_cast<comStation>(msg.sta); // Dangerous it will always succedd and thus have ev values outside ofthe enum
     // const comStation station = _DCCSTA; // for testing purposes
 
-    if (!DCCI.getQueue(IN)->isFull())
+    if (!DccExInterface::getQueue(IN)->isFull())
     { // test if queue isn't full
 
-        TRC(F("Recieved from [%s]:[%d:%d:%d:%d]: %s" CR), DCCI.decode(static_cast<comStation>(msg.sta)), DCCI.getQueue(IN)->size(), msg.mid, msg.client, msg.p, msg.msg.c_str());
-        DCCI.getQueue(IN)->push(msg); // push the message into the incomming queue
+        TRC(F("Recieved from [%s]:[%d:%d:%d:%d]: %s" CR), DccExInterface::decode(static_cast<comStation>(msg.sta)), DccExInterface::getQueue(IN)->size(), msg.mid, msg.client, msg.p, msg.msg.c_str());
+        DccExInterface::getQueue(IN)->push(msg); // push the message into the incomming queue
     }
     else
     {
@@ -78,7 +78,7 @@ void foofunc2(DccMessage msg)
  *                  which Hw serial are hooked up together)
  * @param _speed    Baud rate at which to communicate with the command/network station
  */
-auto DccExInterface::setup(HardwareSerial *_s, uint32_t _speed) -> void
+auto DccExInterface::_isetup(HardwareSerial *_s, uint32_t _speed) -> void
 {
     INFO(F("Setting up DccEx Network interface connection ..." CR));
     s = _s;          // Serial port used for com depends on the wiring
@@ -92,11 +92,11 @@ auto DccExInterface::setup(HardwareSerial *_s, uint32_t _speed) -> void
  * @brief process all that is in the incomming queue and reply
  *
  */
-auto DccExInterface::recieve() -> void
+auto DccExInterface::_iRecieve() -> void
 {
-    if (!DCCI.getQueue(IN)->isEmpty())
+    if (!DccExInterface::getQueue(IN)->isEmpty())
     {
-        DccMessage m = DCCI.getQueue(IN)->pop();
+        DccMessage m = DccExInterface::getQueue(IN)->pop();
         // if recieved from self then we have an issue
         if (m.sta == sta)
         {
@@ -115,7 +115,7 @@ auto DccExInterface::recieve() -> void
  * @param p  protocol for the CS DCC(JMRI), WITHROTTLE etc ..
  * @param msg the messsage ( outgoing i.e. going to the CS i.e. will mostly be functional payloads plus diagnostics )
  */
-void DccExInterface::queue(uint16_t c, csProtocol p, char *msg)
+void DccExInterface::_iqueue(uint16_t c, csProtocol p, char *msg)
 {
 
     MsgPack::str_t s = MsgPack::str_t(msg);
@@ -141,7 +141,7 @@ void DccExInterface::queue(uint16_t c, csProtocol p, char *msg)
  * @param p
  * @param packet
  */
-void DccExInterface::queue(queueType q, csProtocol p, DccMessage packet)
+void DccExInterface::_iqueue(queueType q, csProtocol p, DccMessage packet)
 {
     packet.mid = seq++; //  @todo shows that we actually shall package app payload with ctlr payload
                         // user part just specifies the app payload the rest get added around as
@@ -197,15 +197,15 @@ void DccExInterface::write()
     }
     return;
 };
-void DccExInterface::loop()
+void DccExInterface::_iLoop()
 {
-    write();   // write things the outgoing queue to Serial to send to the party on the other end of the line
-    recieve(); // read things from the incomming queue and process the messages any repliy is put into the outgoing queue
+    write();     // write things the outgoing queue to Serial to send to the party on the other end of the line
+    _iRecieve(); // read things from the incomming queue and process the messages any repliy is put into the outgoing queue
     // update();    // check the com port read what is avalable and push the messages into the incomming queue
 
     MsgPacketizer::update(); // send back replies and get commands/trigger the callback
 };
-auto DccExInterface::decode(csProtocol p) -> const char *
+auto DccExInterface::_iDecode(csProtocol p) -> const char *
 {
     // need to check if p is a valid enum value
     if ((p >= UNKNOWN_CS_PROTOCOL) || (p < 0))
@@ -219,7 +219,7 @@ auto DccExInterface::decode(csProtocol p) -> const char *
     return decodeBuffer;
     // return csProtocolNames[p];
 }
-auto DccExInterface::decode(comStation s) -> const char *
+auto DccExInterface::_iDecode(comStation s) -> const char *
 {
     // need to check if p is a valid enum value
     if ((s >= _UNKNOWN_STA) || (s < 0))
@@ -233,17 +233,17 @@ auto DccExInterface::decode(comStation s) -> const char *
 }
 auto DccExInterface::dccexHandler(DccMessage &m) -> void
 {
-    INFO(F("Processing message from [%s]:[%s]" CR), DCCI.decode(static_cast<comStation>(m.sta)), m.msg.c_str());
+    INFO(F("Processing message from [%s]:[%s]" CR), DccExInterface::decode(static_cast<comStation>(m.sta)), m.msg.c_str());
     // send to the DCC part he commands and get the reply
     char buffer[MAX_MESSAGE_SIZE] = {0};
     sprintf(buffer, "reply from CS: %d:%d:%s", m.client, m.mid, m.msg.c_str());
-    DCCI.queue(m.client, _REPLY, buffer);
+    DccExInterface::queue(m.client, _REPLY, buffer);
 };
 auto DccExInterface::wiThrottleHandler(DccMessage &m) -> void{};
 auto DccExInterface::ctrlHandler(DccMessage &m) -> void
 {
     // where does the message come from
-    INFO(F("Recieved CTRL message from %s" CR), DCCI.decode((comStation)m.sta));
+    INFO(F("Recieved CTRL message from %s" CR), DccExInterface::decode((comStation)m.sta));
     switch (m.sta)
     {
     case _DCCSTA:
@@ -273,7 +273,7 @@ auto DccExInterface::notYetHandler(DccMessage &m) -> void
     }
     else
     {
-        WARN(F("%s Message protocol not supported on %s; Message ignored" CR), DCCI.decode((csProtocol)m.p), DCCI.decode((comStation)m.sta));
+        WARN(F("%s Message protocol not supported on %s; Message ignored" CR), DccExInterface::decode((csProtocol)m.p), DccExInterface::decode((comStation)m.sta));
     }
     return;
 };

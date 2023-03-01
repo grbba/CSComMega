@@ -19,8 +19,8 @@
 auto dcciSetup() -> void
 {
     dccLog.begin(LOG_LEVEL_VERBOSE, &Serial, false);
-    DCCI.setup(_DCCSTA); // setup with default values as CommandStation
-                         // DCCI.setup(&Serial1, 115200); // sending/recieving data to/from the Olimex
+    DccExInterface::setup(_DCCSTA); // setup with default values as CommandStation
+                                    // DCCI.setup(&Serial1, 115200); // sending/recieving data to/from the Olimex
 }
 
 void setup()
@@ -47,5 +47,5 @@ void setup()
 
 void loop()
 {
-    DCCI.loop();
+    DccExInterface::loop();
 }
