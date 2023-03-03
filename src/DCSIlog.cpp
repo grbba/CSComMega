@@ -85,7 +85,9 @@ void DCSILog::diag(const FSH *input...)
   }
 
   INFO(F("Sending Diagnostics: %s" CR), diagMsg.msg.c_str());
-  DccExInterface::queue(OUT, _DIAG, diagMsg); // queue the msg to be send with protocol DIAG
+  diagMsg.p = _DIAG;
+  DccExInterface::queue(OUT, diagMsg); // queue the msg to be send with protocol DIAG
+  // DccExInterface::queue(OUT, _DIAG, diagMsg); // queue the msg to be send with protocol DIAG
 
   // test for msg size .. if > max message size truncate and send a warning as additional DIAG message  ...
   // queue the string to be send  with protocol DIAG
@@ -109,8 +111,8 @@ void DCSILog::flow(char t, int ec)
   diagMsg.msg = stream.str();
   diagMsg.client = 0;
   diagMsg.sta = _DCCSTA;
-
-  DccExInterface::queue(OUT, _CTRL, diagMsg); // queue the msg to be send with protocol CTRL
+  diagMsg.p = _CTRL;
+  DccExInterface::queue(OUT, diagMsg); // queue the msg to be send with protocol CTRL
 }
 
 #endif

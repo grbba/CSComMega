@@ -144,23 +144,6 @@ public:
     // only for the CS
     static void diag(const FSH *input...); // send operational Diagnostics from the CS to the NetworkStation
     static void flow(char t, int ec);      // send errors and warnings from the Interface code to the networkstation
-
-    template <typename Func>
-    static void memchk(Func func)
-    {
-        Serial.print("--> Check memory start ... \n");
-        int before = freeMemory();
-        func();
-        int after = freeMemory();
-        int delta = after - before;
-        if (delta < 0)
-        {
-            delta = delta * -1;
-        }
-        char b[30];
-        sprintf(b, "--> %d bytes of memory %s\n", delta, (after - before) < 0 ? "lost" : "recovered");
-        Serial.println(b);
-    }
 #endif
 
     DCSILog() = default;

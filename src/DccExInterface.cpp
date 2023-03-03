@@ -83,7 +83,7 @@ auto DccExInterface::_isetup(HardwareSerial *_s, uint32_t _speed) -> void
     s->begin(speed); // start the serial port at the given baud rate
     MEMC(MsgPacketizer::subscribe(*s, recv_index, &foofunc2));
     init = true; // interface has been initatlized
-    INFO(F("Setup of %s done ..." CR), comStationNames[sta]);
+    INFO(F("Setup of %s done ..." CR), DccExInterface::decode(static_cast<comStation>(sta)));
 }
 /**
  * @brief process all that is in the incomming queue and reply
@@ -100,8 +100,8 @@ auto DccExInterface::_iRecieve() -> void
             ERR(F("Wrong sender; Msg seems to have been send to self; Msg has been ignored" CR));
             return;
         }
-        INFO("Sending to handler" CR);
-
+        // INFO(F("Sending %x to handler" CR), m);
+        INFO(F("Sending to handler" CR));
         MEMC(handlers[m.p](m););
     }
     return;
@@ -116,36 +116,38 @@ auto DccExInterface::_iRecieve() -> void
 void DccExInterface::_iqueue(uint16_t c, csProtocol p, char *msg)
 {
 
-    MsgPack::str_t s = MsgPack::str_t(msg);
+    // MsgPack::str_t s = MsgPack::str_t(msg);
     DccMessage m;
-
     m.sta = static_cast<int>(sta);
     m.client = c;
     m.p = static_cast<int>(p);
-    m.msg = s;
+    m.msg = MsgPack::str_t(msg); // s;
     m.mid = seq++;
 
     INFO(F("Queuing [%d:%d:%s]:[%s]" CR), m.mid, m.client, decode((csProtocol)m.p), m.msg.c_str());
-    // MsgPacketizer::send(Serial1, 0x12, m);
 
     outgoing.push(m);
+
     return;
 }
+
 /**
  * @brief queue a DccMessage where the payload corresponds to the csProtocl specified. The first parameter
- * specfies if the message shall be queued in the incomming our outgoing queue
+ * specfies if the message shall be queued in the incomming our outgoing queue.
  *
- * @param q
- * @param p
+ * @param q       to which queue the packet shall be queued
+ * @param p       the application protocol of the payload of the packet
  * @param packet
+ * @todo Currently only used in the logging part for the DIAG messages.
+ *       Actually the protocol shall be removed and set at the time the message is constructed
  */
-void DccExInterface::_iqueue(queueType q, csProtocol p, DccMessage packet)
+void DccExInterface::_iqueue(queueType q, DccMessage packet)
 {
-    packet.mid = seq++; //  @todo shows that we actually shall package app payload with ctlr payload
-                        // user part just specifies the app payload the rest get added around as
-                        // wrapper here
-    packet.sta = static_cast<int>(sta);
-    packet.p = static_cast<int>(p);
+    packet.mid = seq++;                 //  @todo shows that we actually shall package app payload with ctlr payload
+                                        // user part just specifies the app payload the rest get added around as
+                                        // wrapper here
+    packet.sta = static_cast<int>(sta); // where does the message come from
+    // packet.p = static_cast<int>(p);
 
     switch (q)
     {
@@ -186,23 +188,20 @@ void DccExInterface::write()
     if (!outgoing.isEmpty())
     { // be nice and only write one at a time
         // only send to the Serial port if there is something in the queu
-        // TRC(F(" -> Memory" CR));
         MEMC(DccMessage m = outgoing.pop();
              TRC(F("Sending [%d:%d:%d]: %s" CR), m.mid, m.client, m.p, m.msg.c_str());
-             // TRC(F("Sending Message... " CR));
              MsgPacketizer::send(*s, 0x34, m););
-        // TRC(F(" Memory ->" CR));
     }
     return;
 };
+
 void DccExInterface::_iLoop()
 {
-    write();     // write things the outgoing queue to Serial to send to the party on the other end of the line
-    _iRecieve(); // read things from the incomming queue and process the messages any repliy is put into the outgoing queue
-    // update();    // check the com port read what is avalable and push the messages into the incomming queue
-
+    write();                 // write things the outgoing queue to Serial to send to the party on the other end of the line
+    _iRecieve();             // read things from the incomming queue and process the messages any repliy is put into the outgoing queue
     MsgPacketizer::update(); // send back replies and get commands/trigger the callback
 };
+
 auto DccExInterface::_iDecode(csProtocol p) -> const char *
 {
     // need to check if p is a valid enum value
@@ -227,19 +226,26 @@ auto DccExInterface::_iDecode(comStation s) -> const char *
     strcpy_P(decodeBuffer, (char *)pgm_read_word(&(comStationNames[s])));
     return decodeBuffer;
 }
+
 auto DccExInterface::dccexHandler(DccMessage &m) -> void
 {
     INFO(F("Processing message from [%s]:[%s]" CR), DccExInterface::decode(static_cast<comStation>(m.sta)), m.msg.c_str());
-    // send to the DCC part he commands and get the reply
+
+    // send to the DCC part the commands and get the reply
+    // TODO we need to check the length of the response comming back from the CS and ev send
+    // TODO send as multiple packets ... ( function which doesn't exist yet function which could be used to balance between space & time)
+
     char buffer[MAX_MESSAGE_SIZE] = {0};
+
     sprintf(buffer, "reply from CS: %d:%d:%s", m.client, m.mid, m.msg.c_str());
-    DccExInterface::queue(m.client, _REPLY, buffer);
+    DccExInterface::queue(m.client, _REPLY, buffer); //
 };
+
 auto DccExInterface::wiThrottleHandler(DccMessage &m) -> void{};
 auto DccExInterface::ctrlHandler(DccMessage &m) -> void
 {
     // where does the message come from
-    INFO(F("Recieved CTRL message from %s" CR), DccExInterface::decode((comStation)m.sta));
+    INFO(F("Recieved CTRL message from %s" CR), DccExInterface::decode(static_cast<comStation>(m.sta)));
     switch (m.sta)
     {
     case _DCCSTA:

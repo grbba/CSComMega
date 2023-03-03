@@ -70,6 +70,7 @@ typedef enum
     SPI, // spi
     UNKNOWN_COM_PROTOCOL
 } comProtocol;
+
 /**
  * @brief the type of command going over the wire. only DCCEX / WITHROTTLE or Contol commands are allowed
  * the networkstation will function as MQTT & HTTP endpoint and only transmit the the DCCEX type commands
@@ -126,8 +127,13 @@ public:
 
     DccMessage()
     {
+        TRC(F("DccMessage created %x" CR), this);
         msg.reserve(MAX_MESSAGE_SIZE); // reserve upfront space; requires that we check that no command exceeds MAX_MESSAGE_SIZE
                                        // avoids heap memory fragmentation and the whole reciev send process runs in constant memory
+    }
+    ~DccMessage()
+    {
+        TRC(F("DccMessage deleted %x" CR), this);
     }
 };
 
@@ -168,7 +174,10 @@ private:
     const uint8_t recv_index = 0x34;
     const uint8_t send_index = 0x12;
 
-    DccExInterface(){};
+    DccExInterface()
+    {
+        TRC(F("CommandStation Network Proxy created" CR));
+    };
 
     auto _igetQueue(queueType q) -> _tDccQueue *
     {
@@ -191,7 +200,7 @@ private:
         sta = station; // sets to network or commandstation mode
         setup();
     }
-    auto _iqueue(queueType q, csProtocol p, DccMessage packet) -> void;
+    auto _iqueue(queueType q, DccMessage packet) -> void;
     auto _iqueue(uint16_t c, csProtocol p, char *msg) -> void;
     auto _iRecieve() -> void;
     auto _iDecode(csProtocol p) -> const char *;
@@ -204,7 +213,6 @@ private:
 public:
     DccExInterface(DccExInterface &other) = delete;
     void operator=(const DccExInterface &) = delete;
-
     static DccExInterface &GetInstance();
 
     static auto getQueue(queueType q) -> _tDccQueue * { return (GetInstance()._igetQueue(q)); }
@@ -214,9 +222,9 @@ public:
      * @param q : incomming or outgoing queue
      * @param packet : DccMessage struct to be pushed and send over the wire
      */
-    static auto queue(queueType q, csProtocol p, DccMessage packet) -> void
+    static auto queue(queueType q, DccMessage packet) -> void
     {
-        GetInstance()._iqueue(q, p, packet);
+        GetInstance()._iqueue(q, packet);
     }
     static auto queue(uint16_t c, csProtocol p, char *msg) -> void { GetInstance()._iqueue(c, p, msg); }
     static auto recieve() -> void { GetInstance()._iRecieve(); } // check the transport to see if tere is something for us
