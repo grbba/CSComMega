@@ -27,6 +27,7 @@
 #include <DCSIconfig.h>
 #include "MsgPacketizer.h"
 #include "Queue.h"
+#include "Pool.h"
 
 constexpr char protocol01[] PROGMEM = "DccEx";
 constexpr char protocol02[] PROGMEM = "WiThrottle";
@@ -137,7 +138,9 @@ public:
     }
 };
 
+typedef Pool<DccMessage, 15> _tDccPool;
 typedef Queue<DccMessage, MAX_QUEUE_SIZE> _tDccQueue;
+
 using _tcsProtocolHandler = void (*)(DccMessage &m);
 
 typedef enum
@@ -160,6 +163,7 @@ private:
                           // send will be queued and handled in the loop
     uint64_t seq = 0;
 
+    _tDccPool msgPool; // Message pool to be used by the queues - the queus shall only have the pointers to elements in the pool
     _tDccQueue incomming;
     _tDccQueue outgoing;
 
