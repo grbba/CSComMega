@@ -54,7 +54,7 @@ unsigned int FSHlength(const __FlashStringHelper *FSHinput)
 void DCSILog::diag(const FSH *input...)
 {
   StringPrint stream;
-  DccMessage diagMsg;
+  DccMessage *diagMsg = DccExInterface::getMsg();
   // get the format sting from Progmem
   const byte inputLength = FSHlength(input);
   char inputBuffer[inputLength + 1];
@@ -71,21 +71,21 @@ void DCSILog::diag(const FSH *input...)
   // send(&stream,input,args);           // send a stream whatever to get he output from the DIAG
   stream.print(F(" *>\n")); // then add postfix print(F(" *>\n"));
 
-  diagMsg.client = 0; // TODO make sure we get the right client add CTRL messsage to set the client in
-                      // TODO DCSIlog object
+  diagMsg->client = 0; // TODO make sure we get the right client add CTRL messsage to set the client in
+                       // TODO DCSIlog object
 
   if (stream.str().length() > MAX_MESSAGE_SIZE)
   {
     WARN(F("Warning DIAG message has been truncated before being send")); // warn that ths string will be truncated (ev ad an ellipse to show this ...)
-    diagMsg.msg = stream.str().substring(0, MAX_MESSAGE_SIZE - 1);
+    diagMsg->msg = stream.str().substring(0, MAX_MESSAGE_SIZE - 1);
   }
   else
   {
-    diagMsg.msg = stream.str().substring(0, stream.str().length() - 1);
+    diagMsg->msg = stream.str().substring(0, stream.str().length() - 1);
   }
 
-  INFO(F("Sending Diagnostics: %s" CR), diagMsg.msg.c_str());
-  diagMsg.p = _DIAG;
+  INFO(F("Sending Diagnostics: %s" CR), diagMsg->msg.c_str());
+  diagMsg->p = _DIAG;
   DccExInterface::queue(OUT, diagMsg); // queue the msg to be send with protocol DIAG
   // DccExInterface::queue(OUT, _DIAG, diagMsg); // queue the msg to be send with protocol DIAG
 
@@ -103,15 +103,15 @@ void DCSILog::diag(const FSH *input...)
 void DCSILog::flow(char t, int ec)
 {
   StringPrint stream;
-  DccMessage diagMsg;
+  DccMessage *diagMsg = DccExInterface::getMsg();
   char buffer[MAX_MESSAGE_SIZE];
 
   sprintf(buffer, "%c%d", t, ec);
   stream.print(buffer);
-  diagMsg.msg = stream.str();
-  diagMsg.client = 0;
-  diagMsg.sta = _DCCSTA;
-  diagMsg.p = _CTRL;
+  diagMsg->msg = stream.str();
+  diagMsg->client = 0;
+  diagMsg->sta = _DCCSTA;
+  diagMsg->p = _CTRL;
   DccExInterface::queue(OUT, diagMsg); // queue the msg to be send with protocol CTRL
 }
 

@@ -4,32 +4,11 @@
 
 #include <bit.h>
 
-/*
-message class is for testing purposes only 
-*/
-class message {
-public:
-    int a = 0;
-    char c = '\0';
-    message(){};
-    message(int v1, char v2)
-    {
-        a = v1; 
-        c = v2;
-    }; 
-
-    // void reset() { 
-    //     a = 0;
-    //     c = '\0';
-    // };
-
-};
-
-
 template<typename T, int S>
 class Pool {
 private:
     T pool[S];
+    T nil;
     int16_t use = 0;    // int 16 i.e. no more than 16 elements in the pool 
                         // every bit resperesnts if one entry is used or not 
     // bool use[S] = {false};
@@ -40,14 +19,16 @@ private:
             // if ( use[idx] == false ) {
                 // use[idx] = true;
                 setBit(use, idx);
+                // std::cout << "Allocated " << std::hex << &pool[idx] << std::endl;
                 return &pool[idx];
             }
         }
         // no element in the pool is available
-        return nullptr;
+        return &nil;
     }
 
 public: 
+    
     T* allocate() {
         return _iAllocate();
     };
@@ -60,6 +41,11 @@ public:
             }
         }
     };
+
+    bool isNil(T*obj) {
+        return (obj == &nil);
+    }
+    
 };
 
 #endif

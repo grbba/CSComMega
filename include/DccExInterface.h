@@ -138,8 +138,8 @@ public:
     }
 };
 
-typedef Pool<DccMessage, 15> _tDccPool;
-typedef Queue<DccMessage, MAX_QUEUE_SIZE> _tDccQueue;
+typedef Pool<DccMessage, MAX_QUEUE_SIZE * 2> _tDccPool; // set to max queue size * 2 but actuall use may require less items i the queue
+typedef Queue<DccMessage *, MAX_QUEUE_SIZE> _tDccQueue; // only manage pointers to the messages in the pool in the queue
 
 using _tcsProtocolHandler = void (*)(DccMessage &m);
 
@@ -183,6 +183,14 @@ private:
         TRC(F("CommandStation Network Proxy created" CR));
     };
 
+    auto _igetPool() -> DccMessage*
+    {
+        return msgPool.allocate();
+    }
+    auto _iFreePool(DccMessage *m) -> void
+    {
+        msgPool.release(m);
+    }
     auto _igetQueue(queueType q) -> _tDccQueue *
     {
         switch (q)
@@ -204,7 +212,7 @@ private:
         sta = station; // sets to network or commandstation mode
         setup();
     }
-    auto _iqueue(queueType q, DccMessage packet) -> void;
+    auto _iqueue(queueType q, DccMessage *packet) -> void;
     auto _iqueue(uint16_t c, csProtocol p, char *msg) -> void;
     auto _iRecieve() -> void;
     auto _iDecode(csProtocol p) -> const char *;
@@ -219,6 +227,14 @@ public:
     void operator=(const DccExInterface &) = delete;
     static DccExInterface &GetInstance();
 
+    static auto getMsg() -> DccMessage *
+    {
+        return (GetInstance()._igetPool());
+    }
+    static auto releaseMsg(DccMessage *m) -> void
+    {
+        return (GetInstance()._iFreePool(m));
+    }
     static auto getQueue(queueType q) -> _tDccQueue * { return (GetInstance()._igetQueue(q)); }
     /**
      * @brief pushes a DccMessage struct into the designated queue
@@ -226,7 +242,7 @@ public:
      * @param q : incomming or outgoing queue
      * @param packet : DccMessage struct to be pushed and send over the wire
      */
-    static auto queue(queueType q, DccMessage packet) -> void
+    static auto queue(queueType q, DccMessage* packet) -> void
     {
         GetInstance()._iqueue(q, packet);
     }

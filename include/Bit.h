@@ -7,25 +7,25 @@
 
 template<typename T>
 T oneBit(uint8_t const bitIndex) {
-    assert(0 <= bitIndex < sizeof(T)*8 );
+    assert((0 <= bitIndex) < sizeof(T)*8 );
     return static_cast<T>(1) << bitIndex;
 }
 
 template<typename T>
 void setBit(T &value, uint8_t bitIndex) {
-    assert(0 <= bitIndex < sizeof(T)*8 );
+    assert((0 <= bitIndex) < sizeof(T)*8 );
     value |= oneBit<T>(bitIndex);
 }
 
 template<typename T>
 void unsetBit(T &value, uint8_t bitIndex) {
-  assert(0 <= bitIndex < sizeof(T)*8 );  
+  assert((0 <= bitIndex) < sizeof(T)*8 );  
   value &= ~(oneBit<T>(bitIndex));
 }
 
 template<typename T>
 T checkBit(T &value, uint8_t bitIndex) {
-    assert(0 <= bitIndex < sizeof(T)*8 );
+    assert((0 <= bitIndex) < sizeof(T)*8 );
     return ((0u == ( (value) & (oneBit<T>(bitIndex)) )) ? 0u : 1u);
 }
 
