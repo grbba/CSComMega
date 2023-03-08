@@ -60,7 +60,10 @@ void foofunc2(DccMessage msg)
     { // test if queue isn't full
 
         TRC(F("Recieved from [%s]:[%d:%d:%d:%d]: %s" CR), DccExInterface::decode(static_cast<comStation>(msg.sta)), DccExInterface::getQueue(IN)->size(), msg.mid, msg.client, msg.p, msg.msg.c_str());
-        DccExInterface::getQueue(IN)->push(msg); // push the message into the incomming queue
+        DccMessage *m = DccExInterface::getMsg();
+        memcpy(m, &msg, sizeof(msg));
+        TRC(F("Recieved22 from [%s]:[%d:%d:%d:%d]: %s" CR), DccExInterface::decode(static_cast<comStation>(m->sta)), DccExInterface::getQueue(IN)->size(), m->mid, m->client, m->p, m->msg.c_str());
+        DccExInterface::getQueue(IN)->push(m); // push the message into the incomming queue
     }
     else
     {
@@ -93,16 +96,17 @@ auto DccExInterface::_iRecieve() -> void
 {
     if (!DccExInterface::getQueue(IN)->isEmpty())
     {
-        DccMessage m = DccExInterface::getQueue(IN)->pop();
+        DccMessage *m = DccExInterface::getQueue(IN)->pop();
+        DccExInterface::releaseMsg(m); // in a mt scn this is no good here as we could possibly reuse the message before wemanaged to handle the content here
         // if recieved from self then we have an issue
-        if (m.sta == sta)
+        if (m->sta == sta)
         {
             ERR(F("Wrong sender; Msg seems to have been send to self; Msg has been ignored" CR));
             return;
         }
         // INFO(F("Sending %x to handler" CR), m);
         INFO(F("Sending to handler" CR));
-        MEMC(handlers[m.p](m););
+        MEMC(handlers[m->p](*m););
     }
     return;
 }
@@ -117,14 +121,15 @@ void DccExInterface::_iqueue(uint16_t c, csProtocol p, char *msg)
 {
 
     // MsgPack::str_t s = MsgPack::str_t(msg);
-    DccMessage m;
-    m.sta = static_cast<int>(sta);
-    m.client = c;
-    m.p = static_cast<int>(p);
-    m.msg = MsgPack::str_t(msg); // s;
-    m.mid = seq++;
+    DccMessage *m = DccExInterface::getMsg();
 
-    INFO(F("Queuing [%d:%d:%s]:[%s]" CR), m.mid, m.client, decode((csProtocol)m.p), m.msg.c_str());
+    m->sta = static_cast<int>(sta);
+    m->client = c;
+    m->p = static_cast<int>(p);
+    m->msg = MsgPack::str_t(msg); // s;
+    m->mid = seq++;
+
+    INFO(F("Queuing [%d:%d:%s]:[%s]" CR), m->mid, m->client, decode((csProtocol)m->p), m->msg.c_str());
 
     outgoing.push(m);
 
@@ -141,13 +146,12 @@ void DccExInterface::_iqueue(uint16_t c, csProtocol p, char *msg)
  * @todo Currently only used in the logging part for the DIAG messages.
  *       Actually the protocol shall be removed and set at the time the message is constructed
  */
-void DccExInterface::_iqueue(queueType q, DccMessage packet)
+void DccExInterface::_iqueue(queueType q, DccMessage *packet)
 {
-    packet.mid = seq++;                 //  @todo shows that we actually shall package app payload with ctlr payload
-                                        // user part just specifies the app payload the rest get added around as
-                                        // wrapper here
-    packet.sta = static_cast<int>(sta); // where does the message come from
-    // packet.p = static_cast<int>(p);
+    packet->mid = seq++;                 //  @todo shows that we actually shall package app payload with ctlr payload
+                                         // user part just specifies the app payload the rest get added around as
+                                         // wrapper here
+    packet->sta = static_cast<int>(sta); // where does the message come from
 
     switch (q)
     {
@@ -188,9 +192,10 @@ void DccExInterface::write()
     if (!outgoing.isEmpty())
     { // be nice and only write one at a time
         // only send to the Serial port if there is something in the queu
-        MEMC(DccMessage m = outgoing.pop();
-             TRC(F("Sending [%d:%d:%d]: %s" CR), m.mid, m.client, m.p, m.msg.c_str());
-             MsgPacketizer::send(*s, 0x34, m););
+        MEMC(DccMessage *m = outgoing.pop();
+             TRC(F("Sending [%d:%d:%d]: %s" CR), m->mid, m->client, m->p, m->msg.c_str());
+             MsgPacketizer::send(*s, 0x34, *m);
+             DccExInterface::releaseMsg(m));
     }
     return;
 };
