@@ -51,19 +51,20 @@ DCCNetwork *network = NetworkInterface::getDCCNetwork();
  */
 void foofunc2(DccMessage msg)
 {
-    TRC(F("Enter fooFunc2" CR));
-    // const int qs = DCCI.getQueue(IN)->size();
-    // const comStation station = static_cast<comStation>(msg.sta); // Dangerous it will always succedd and thus have ev values outside ofthe enum
-    // const comStation station = _DCCSTA; // for testing purposes
-
+    // test if queue isn't full
     if (!DccExInterface::getQueue(IN)->isFull())
-    { // test if queue isn't full
-
-        TRC(F("Recieved from [%s]:[%d:%d:%d:%d]: %s" CR), DccExInterface::decode(static_cast<comStation>(msg.sta)), DccExInterface::getQueue(IN)->size(), msg.mid, msg.client, msg.p, msg.msg.c_str());
+    {
+        // allocate a DccMessage from the pool and copy the contents recieved
         DccMessage *m = DccExInterface::getMsg();
-        memcpy(m, &msg, sizeof(msg));
-        TRC(F("Recieved22 from [%s]:[%d:%d:%d:%d]: %s" CR), DccExInterface::decode(static_cast<comStation>(m->sta)), DccExInterface::getQueue(IN)->size(), m->mid, m->client, m->p, m->msg.c_str());
-        DccExInterface::getQueue(IN)->push(m); // push the message into the incomming queue
+        DccMessage::copy(m, &msg);
+
+        TRC(F("Recieved from [%s]:[%d:%d:%d:%d]: %s" CR),
+            DccExInterface::decode(static_cast<comStation>(m->sta)),
+            DccExInterface::getQueue(IN)->size(),
+            m->mid, m->client, m->p, m->msg.c_str());
+
+        // push the message into the incomming queue
+        DccExInterface::getQueue(IN)->push(m);
     }
     else
     {
@@ -97,7 +98,7 @@ auto DccExInterface::_iRecieve() -> void
     if (!DccExInterface::getQueue(IN)->isEmpty())
     {
         DccMessage *m = DccExInterface::getQueue(IN)->pop();
-        DccExInterface::releaseMsg(m); // in a mt scn this is no good here as we could possibly reuse the message before wemanaged to handle the content here
+        TRC(F("Recieving on [%s] from [%s]:[%d:%d:%d:%d]: %s" CR), DccExInterface::decode(static_cast<comStation>(sta)), DccExInterface::decode(static_cast<comStation>(m->sta)), DccExInterface::getQueue(IN)->size(), m->mid, m->client, m->p, m->msg.c_str());
         // if recieved from self then we have an issue
         if (m->sta == sta)
         {
@@ -107,6 +108,7 @@ auto DccExInterface::_iRecieve() -> void
         // INFO(F("Sending %x to handler" CR), m);
         INFO(F("Sending to handler" CR));
         MEMC(handlers[m->p](*m););
+        DccExInterface::releaseMsg(m);
     }
     return;
 }

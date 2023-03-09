@@ -126,19 +126,28 @@ public:
     MsgPack::str_t msg; // going to CS this is a command and a reply on return
     MSGPACK_DEFINE(sta, mid, client, p, msg);
 
+    static void copy(DccMessage *dest, DccMessage *src)
+    {
+        dest->sta = src->sta;
+        dest->mid = src->mid;
+        dest->client = src->client;
+        dest->p = src->p;
+        dest->msg = src->msg;
+    }
+
     DccMessage()
     {
-        TRC(F("DccMessage created %x" CR), this);
+        // TRC(F("DccMessage created %x" CR), this);
         msg.reserve(MAX_MESSAGE_SIZE); // reserve upfront space; requires that we check that no command exceeds MAX_MESSAGE_SIZE
                                        // avoids heap memory fragmentation and the whole reciev send process runs in constant memory
     }
     ~DccMessage()
     {
-        TRC(F("DccMessage deleted %x" CR), this);
+        // TRC(F("DccMessage deleted %x" CR), this);
     }
 };
 
-typedef Pool<DccMessage, MAX_QUEUE_SIZE * 2> _tDccPool; // set to max queue size * 2 but actuall use may require less items i the queue
+typedef Pool<DccMessage, MAX_QUEUE_SIZE> _tDccPool;     // set to max queue size but actual use may require less items in the queue
 typedef Queue<DccMessage *, MAX_QUEUE_SIZE> _tDccQueue; // only manage pointers to the messages in the pool in the queue
 
 using _tcsProtocolHandler = void (*)(DccMessage &m);
@@ -183,7 +192,7 @@ private:
         TRC(F("CommandStation Network Proxy created" CR));
     };
 
-    auto _igetPool() -> DccMessage*
+    auto _igetPool() -> DccMessage *
     {
         return msgPool.allocate();
     }
@@ -210,7 +219,7 @@ private:
     auto _iSetup(comStation station) -> void
     {
         sta = station; // sets to network or commandstation mode
-        setup();
+        _isetup();
     }
     auto _iqueue(queueType q, DccMessage *packet) -> void;
     auto _iqueue(uint16_t c, csProtocol p, char *msg) -> void;
@@ -242,7 +251,7 @@ public:
      * @param q : incomming or outgoing queue
      * @param packet : DccMessage struct to be pushed and send over the wire
      */
-    static auto queue(queueType q, DccMessage* packet) -> void
+    static auto queue(queueType q, DccMessage *packet) -> void
     {
         GetInstance()._iqueue(q, packet);
     }
