@@ -118,13 +118,17 @@ typedef enum
 class DccMessage
 {
 public:
-    int sta;            // station allowed values are comming from the comStation enum
+    int8_t sta;         // station allowed values are comming from the comStation enum
                         // but as msgpack doesn't really work on enums(?)
-    int mid;            // message id; sequence number
-    int client;         // client id ( socket number from Wifi or Ethernet to be checked if we need to also have the original channel)
-    int p;              // either JMRI or WITHROTTLE in order to understand the content of the msg payload
+    int16_t mid;        // message id; sequence number
+    int8_t client;      // client id ( socket number from Wifi or Ethernet to be checked if we need to also have the original channel)
+    int8_t p;           // either JMRI or WITHROTTLE in order to understand the content of the msg payload
     MsgPack::str_t msg; // going to CS this is a command and a reply on return
     MSGPACK_DEFINE(sta, mid, client, p, msg);
+
+    // function pointer to either the write function(sending the message to the otherside over the com link) or the recieve function(i.e.processing the recieved message)
+    using _tcsProcessHandler = void (*)(DccMessage *);
+    _tcsProcessHandler process;
 
     static void copy(DccMessage *dest, DccMessage *src)
     {
@@ -134,7 +138,6 @@ public:
         dest->p = src->p;
         dest->msg = src->msg;
     }
-
     DccMessage()
     {
         // TRC(F("DccMessage created %x" CR), this);
@@ -150,6 +153,7 @@ public:
 typedef Pool<DccMessage, MAX_QUEUE_SIZE> _tDccPool;     // set to max queue size but actual use may require less items in the queue
 typedef Queue<DccMessage *, MAX_QUEUE_SIZE> _tDccQueue; // only manage pointers to the messages in the pool in the queue
 
+using _tcsProcessHandler = void (*)(DccMessage *m);
 using _tcsProtocolHandler = void (*)(DccMessage &m);
 
 typedef enum
@@ -172,14 +176,11 @@ private:
                           // send will be queued and handled in the loop
     uint64_t seq = 0;
 
-    _tDccPool msgPool; // Message pool to be used by the queues - the queus shall only have the pointers to elements in the pool
-    _tDccQueue incomming;
-    _tDccQueue outgoing;
+    _tDccPool msgPool;   // Message pool to be used by the queues - the queues shall only have the pointers to elements in the pool ( the queue size can be different from the pool size to manage more fine grained mem consumption )
+    _tDccQueue msgQueue; // holds the pointers to the messages to be processed the messages hold the pointer to the function which shall process the message
+    // _tDccQueue outgoing;
 
     char decodeBuffer[15]; // buffer used for the decodefunctions
-
-    // const char *csProtocolNames[8] = {"DCCEX", "WTH", "REPLY", "DIAG", "MQTT", "HTTP", "CTRL", "UNKNOWN"}; // TODO move that to Progmem
-    // const char *comStationNames[3] = {"CommandStation", "NetworkStation", "Unknown"};
 
     HANDLERS;
     HANDLER_INIT;
@@ -200,20 +201,9 @@ private:
     {
         msgPool.release(m);
     }
-    auto _igetQueue(queueType q) -> _tDccQueue *
+    auto _igetMsgQueue() -> _tDccQueue *
     {
-        switch (q)
-        {
-        case IN:
-            return &incomming;
-            break;
-        case OUT:
-            return &outgoing;
-            break;
-        default:
-            ERR(F("Unknown queue type returning null"));
-            return nullptr;
-        }
+        return &msgQueue;
     }
     auto _isetup(HardwareSerial *s = &Serial1, uint32_t speed = 115200) -> void;
     auto _iSetup(comStation station) -> void
@@ -223,13 +213,13 @@ private:
     }
     auto _iqueue(queueType q, DccMessage *packet) -> void;
     auto _iqueue(uint16_t c, csProtocol p, char *msg) -> void;
-    auto _iRecieve() -> void;
+    auto _iRecieve(DccMessage *m) -> void;
     auto _iDecode(csProtocol p) -> const char *;
     auto _iDecode(comStation s) -> const char *;
     auto _iLoop() -> void;
-    auto _iSize(queueType inout) -> size_t;
-    auto write() -> void; // writes the messages from the outgoing queue to the com protocol endpoint (Serial only
-                          // at this point
+    auto _iSize() -> size_t;
+    auto _iWrite(DccMessage *m) -> void; // writes the messages from the outgoing queue to the com protocol endpoint (Serial only
+                                         // at this point
 
 public:
     DccExInterface(DccExInterface &other) = delete;
@@ -240,11 +230,14 @@ public:
     {
         return (GetInstance()._igetPool());
     }
+
     static auto releaseMsg(DccMessage *m) -> void
     {
         return (GetInstance()._iFreePool(m));
     }
-    static auto getQueue(queueType q) -> _tDccQueue * { return (GetInstance()._igetQueue(q)); }
+
+    static auto getMsgQueue() -> _tDccQueue * { return (GetInstance()._igetMsgQueue()); }
+
     /**
      * @brief pushes a DccMessage struct into the designated queue
      *
@@ -256,7 +249,8 @@ public:
         GetInstance()._iqueue(q, packet);
     }
     static auto queue(uint16_t c, csProtocol p, char *msg) -> void { GetInstance()._iqueue(c, p, msg); }
-    static auto recieve() -> void { GetInstance()._iRecieve(); } // check the transport to see if tere is something for us
+    static auto recieve(DccMessage *m) -> void { GetInstance()._iRecieve(m); } // check the transport to see if tere is something for us
+    static auto write(DccMessage *m) -> void { GetInstance()._iWrite(m); }     // check the transport to see if tere is something for us to send back
     /**
      * @brief setup the serial interface
      *
@@ -266,7 +260,7 @@ public:
     static auto setup(HardwareSerial *s = &Serial1, uint32_t speed = 115200) -> void { GetInstance()._isetup(s, speed); }
     static auto setup(comStation station) -> void { GetInstance()._iSetup(station); }
     static auto loop() -> void { GetInstance()._iLoop(); }
-    static auto size(queueType inout) -> size_t { return GetInstance()._iSize(inout); }
+    static auto size() -> size_t { return GetInstance()._iSize(); }
     static auto decode(csProtocol p) -> const char * { return GetInstance()._iDecode(p); }
     static auto decode(comStation s) -> const char * { return GetInstance()._iDecode(s); }
 };

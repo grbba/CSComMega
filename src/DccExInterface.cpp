@@ -52,19 +52,20 @@ DCCNetwork *network = NetworkInterface::getDCCNetwork();
 void foofunc2(DccMessage msg)
 {
     // test if queue isn't full
-    if (!DccExInterface::getQueue(IN)->isFull())
+    if (!DccExInterface::getMsgQueue()->isFull())
     {
         // allocate a DccMessage from the pool and copy the contents recieved
         DccMessage *m = DccExInterface::getMsg();
         DccMessage::copy(m, &msg);
+        m->process = DccExInterface::recieve;
 
-        TRC(F("Recieved from [%s]:[%d:%d:%d:%d]: %s" CR),
-            DccExInterface::decode(static_cast<comStation>(m->sta)),
-            DccExInterface::getQueue(IN)->size(),
-            m->mid, m->client, m->p, m->msg.c_str());
+        // TRC(F("Recieved from [%s]:[%d:%d:%d:%d]: %s" CR),
+        //     DccExInterface::decode(static_cast<comStation>(m->sta)),
+        //     DccExInterface::getQueue(IN)->size(),
+        //     m->mid, m->client, m->p, m->msg.c_str());
 
-        // push the message into the incomming queue
-        DccExInterface::getQueue(IN)->push(m);
+        // push the message into the message queue
+        DccExInterface::getMsgQueue()->push(m);
     }
     else
     {
@@ -93,25 +94,21 @@ auto DccExInterface::_isetup(HardwareSerial *_s, uint32_t _speed) -> void
  * @brief process all that is in the incomming queue and reply
  *
  */
-auto DccExInterface::_iRecieve() -> void
+auto DccExInterface::_iRecieve(DccMessage *m) -> void
 {
-    if (!DccExInterface::getQueue(IN)->isEmpty())
+    TRC(F("Recieved from [%s]:[%d:%d:%d:%d]: %s" CR), DccExInterface::decode(comStation(m->sta)), DccExInterface::getMsgQueue()->size(), m->mid, m->client, m->p, m->msg.c_str());
+    // if recieved from self then we have an issue
+    if (m->sta == sta)
     {
-        DccMessage *m = DccExInterface::getQueue(IN)->pop();
-        TRC(F("Recieving on [%s] from [%s]:[%d:%d:%d:%d]: %s" CR), DccExInterface::decode(static_cast<comStation>(sta)), DccExInterface::decode(static_cast<comStation>(m->sta)), DccExInterface::getQueue(IN)->size(), m->mid, m->client, m->p, m->msg.c_str());
-        // if recieved from self then we have an issue
-        if (m->sta == sta)
-        {
-            ERR(F("Wrong sender; Msg seems to have been send to self; Msg has been ignored" CR));
-            return;
-        }
-        // INFO(F("Sending %x to handler" CR), m);
-        INFO(F("Sending to handler" CR));
-        MEMC(handlers[m->p](*m););
-        DccExInterface::releaseMsg(m);
+        ERR(F("Wrong sender; Msg seems to have been send to self; Msg has been ignored" CR));
+        return;
     }
+    // INFO(F("Sending %x to handler" CR), m);
+    INFO(F("Sending to handler" CR));
+    MEMC(handlers[m->p](*m););
     return;
 }
+
 /**
  * @brief creates a DccMessage and adds it to the outgoing queue
  *
@@ -130,10 +127,11 @@ void DccExInterface::_iqueue(uint16_t c, csProtocol p, char *msg)
     m->p = static_cast<int>(p);
     m->msg = MsgPack::str_t(msg); // s;
     m->mid = seq++;
+    m->process = DccExInterface::write;
 
     INFO(F("Queuing [%d:%d:%s]:[%s]" CR), m->mid, m->client, decode((csProtocol)m->p), m->msg.c_str());
 
-    outgoing.push(m);
+    msgQueue.push(m);
 
     return;
 }
@@ -148,7 +146,7 @@ void DccExInterface::_iqueue(uint16_t c, csProtocol p, char *msg)
  * @todo Currently only used in the logging part for the DIAG messages.
  *       Actually the protocol shall be removed and set at the time the message is constructed
  */
-void DccExInterface::_iqueue(queueType q, DccMessage *packet)
+/* void DccExInterface::_iqueue(queueType q, DccMessage *packet)
 {
     packet->mid = seq++;                 //  @todo shows that we actually shall package app payload with ctlr payload
                                          // user part just specifies the app payload the rest get added around as
@@ -184,33 +182,38 @@ void DccExInterface::_iqueue(queueType q, DccMessage *packet)
         break;
     }
 }
+*/
 /**
  * @brief write pending messages in the outgoing queue to the serial connection
  *
  */
-void DccExInterface::write()
+void DccExInterface::_iWrite(DccMessage *m)
 {
-    // while (!outgoing->empty()) {  // empty the queue
-    if (!outgoing.isEmpty())
-    { // be nice and only write one at a time
-        // only send to the Serial port if there is something in the queu
-        MEMC(DccMessage *m = outgoing.pop();
-             TRC(F("Sending [%d:%d:%d]: %s" CR), m->mid, m->client, m->p, m->msg.c_str());
-             MsgPacketizer::send(*s, 0x34, *m);
-             DccExInterface::releaseMsg(m));
-    }
+    TRC(F("Sending [%d:%d:%d]: %s" CR), m->mid, m->client, m->p, m->msg.c_str());
+    MsgPacketizer::send(*s, 0x34, *m);
     return;
-};
+}
 
 void DccExInterface::_iLoop()
 {
-    write();                 // write things the outgoing queue to Serial to send to the party on the other end of the line
-    _iRecieve();             // read things from the incomming queue and process the messages any repliy is put into the outgoing queue
+
+    if (!DccExInterface::getMsgQueue()->isEmpty())
+    {
+        DccMessage *m = DccExInterface::getMsgQueue()->pop();
+        TRC(F("Processing :[%d:%d:%d:%d]: %s" CR), DccExInterface::getMsgQueue()->size(), m->mid, m->client, m->p, m->msg.c_str());
+        m->process(m); // that will call either recieve() or write()
+        DccExInterface::releaseMsg(m);
+    }
+
+    // _iWrite();            // write things the outgoing queue to Serial to send to the party on the other end of the line
+    // _iRecieve();          // read things from the incomming queue and process the messages any repliy is put into the outgoing queue
     MsgPacketizer::update(); // send back replies and get commands/trigger the callback
 };
 
 auto DccExInterface::_iDecode(csProtocol p) -> const char *
 {
+    // empty the buffer
+    memset(decodeBuffer, 0, sizeof(decodeBuffer));
     // need to check if p is a valid enum value
     if ((p >= UNKNOWN_CS_PROTOCOL) || (p < 0))
     {
@@ -223,13 +226,17 @@ auto DccExInterface::_iDecode(csProtocol p) -> const char *
 }
 auto DccExInterface::_iDecode(comStation s) -> const char *
 {
+    // empty the buffer
+    memset(decodeBuffer, 0, sizeof(decodeBuffer));
     // need to check if p is a valid enum value
+    decodeBuffer[0] = '\0';
     if ((s >= _UNKNOWN_STA) || (s < 0))
     {
         ERR(F("Cannot decode comStation %d returning unkown"), s);
         strcpy_P(decodeBuffer, (char *)pgm_read_word(&(comStationNames[_UNKNOWN_STA])));
         return decodeBuffer;
     }
+    // TRC(F("Decoding comStation:[%d]" CR), (int) s);
     strcpy_P(decodeBuffer, (char *)pgm_read_word(&(comStationNames[s])));
     return decodeBuffer;
 }
@@ -286,18 +293,9 @@ auto DccExInterface::notYetHandler(DccMessage &m) -> void
     }
     return;
 };
-auto DccExInterface::_iSize(queueType inout) -> size_t
+auto DccExInterface::_iSize() -> size_t
 {
-    if (inout == IN)
-    {
-        return incomming.size();
-    }
-    if (inout == OUT)
-    {
-        return outgoing.size();
-    }
-    ERR(F("Unknown queue in size; specifiy either IN or OUT"));
-    return 0;
+    return msgQueue.size();
 }
 
 #ifndef DCCI_CS // only valid on the NW station
