@@ -69,7 +69,7 @@ void foofunc2(DccMessage msg)
     }
     else
     {
-        ERR(F("Incomming queue is full; Message has not been processed" CR));
+        ERR(F("Message queue is full; Message has not been processed" CR));
     }
 }
 /**
@@ -83,10 +83,12 @@ void foofunc2(DccMessage msg)
 auto DccExInterface::_isetup(HardwareSerial *_s, uint32_t _speed) -> void
 {
     INFO(F("Setting up DccEx Network interface connection ..." CR));
+    
     s = _s;          // Serial port used for com depends on the wiring
     speed = _speed;  // speed of the connection
     s->begin(speed); // start the serial port at the given baud rate
-    MEMC(MsgPacketizer::subscribe(*s, recv_index, &foofunc2));
+    MsgPacketizer::subscribe(*s, recv_index, &foofunc2);
+
     init = true; // interface has been initatlized
     INFO(F("Setup of %s done ..." CR), DccExInterface::decode(static_cast<comStation>(sta)));
 }
@@ -103,7 +105,6 @@ auto DccExInterface::_iRecieve(DccMessage *m) -> void
         ERR(F("Wrong sender; Msg seems to have been send to self; Msg has been ignored" CR));
         return;
     }
-    // INFO(F("Sending %x to handler" CR), m);
     INFO(F("Sending to handler" CR));
     MEMC(handlers[m->p](*m););
     return;
@@ -135,54 +136,13 @@ void DccExInterface::_iqueue(uint16_t c, csProtocol p, char *msg)
 
     return;
 }
-
-/**
- * @brief queue a DccMessage where the payload corresponds to the csProtocl specified. The first parameter
- * specfies if the message shall be queued in the incomming our outgoing queue.
- *
- * @param q       to which queue the packet shall be queued
- * @param p       the application protocol of the payload of the packet
- * @param packet
- * @todo Currently only used in the logging part for the DIAG messages.
- *       Actually the protocol shall be removed and set at the time the message is constructed
- */
-/* void DccExInterface::_iqueue(queueType q, DccMessage *packet)
+void DccExInterface::_iqueue(DccMessage *m)
 {
-    packet->mid = seq++;                 //  @todo shows that we actually shall package app payload with ctlr payload
-                                         // user part just specifies the app payload the rest get added around as
-                                         // wrapper here
-    packet->sta = static_cast<int>(sta); // where does the message come from
-
-    switch (q)
-    {
-    case IN:
-        if (!incomming.isFull())
-        {
-            // still space available
-            incomming.push(packet);
-        }
-        else
-        {
-            ERR(F("Incomming queue is full; Message hasn't been queued"));
-        }
-        break;
-    case OUT:
-        if (!outgoing.isFull())
-        {
-            // still space available
-            outgoing.push(packet);
-        }
-        else
-        {
-            ERR(F("Outgoing queue is full; Message hasn't been queued"));
-        }
-        break;
-    default:
-        ERR(F("Can not queue: wrong queue type must be IN or OUT"));
-        break;
-    }
+    INFO(F("Queuing [%d:%d:%s]:[%s]" CR), m->mid, m->client, decode((csProtocol)m->p), m->msg.c_str());
+    msgQueue.push(m);
+    return;
 }
-*/
+
 /**
  * @brief write pending messages in the outgoing queue to the serial connection
  *
@@ -204,9 +164,7 @@ void DccExInterface::_iLoop()
         m->process(m); // that will call either recieve() or write()
         DccExInterface::releaseMsg(m);
     }
-
-    // _iWrite();            // write things the outgoing queue to Serial to send to the party on the other end of the line
-    // _iRecieve();          // read things from the incomming queue and process the messages any repliy is put into the outgoing queue
+    
     MsgPacketizer::update(); // send back replies and get commands/trigger the callback
 };
 

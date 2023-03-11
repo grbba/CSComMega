@@ -1,4 +1,3 @@
-// #define MSGPACKETIZER_DEBUGLOG_ENABLE
 
 #include <Arduino.h>
 #include <MsgPacketizer.h>

@@ -24,6 +24,7 @@
 #ifndef DCCI_CS
 #include <Transport.h>
 #endif
+
 #include <DCSIconfig.h>
 #include "MsgPacketizer.h"
 #include "Queue.h"
@@ -140,13 +141,13 @@ public:
     }
     DccMessage()
     {
-        // TRC(F("DccMessage created %x" CR), this);
+        TRC(F("DccMessage created %x" CR), this);
         msg.reserve(MAX_MESSAGE_SIZE); // reserve upfront space; requires that we check that no command exceeds MAX_MESSAGE_SIZE
                                        // avoids heap memory fragmentation and the whole reciev send process runs in constant memory
     }
     ~DccMessage()
     {
-        // TRC(F("DccMessage deleted %x" CR), this);
+        TRC(F("DccMessage deleted %x" CR), this);
     }
 };
 
@@ -178,7 +179,6 @@ private:
 
     _tDccPool msgPool;   // Message pool to be used by the queues - the queues shall only have the pointers to elements in the pool ( the queue size can be different from the pool size to manage more fine grained mem consumption )
     _tDccQueue msgQueue; // holds the pointers to the messages to be processed the messages hold the pointer to the function which shall process the message
-    // _tDccQueue outgoing;
 
     char decodeBuffer[15]; // buffer used for the decodefunctions
 
@@ -211,8 +211,8 @@ private:
         sta = station; // sets to network or commandstation mode
         _isetup();
     }
-    auto _iqueue(queueType q, DccMessage *packet) -> void;
     auto _iqueue(uint16_t c, csProtocol p, char *msg) -> void;
+    auto _iqueue(DccMessage *m) -> void;
     auto _iRecieve(DccMessage *m) -> void;
     auto _iDecode(csProtocol p) -> const char *;
     auto _iDecode(comStation s) -> const char *;
@@ -230,24 +230,12 @@ public:
     {
         return (GetInstance()._igetPool());
     }
-
     static auto releaseMsg(DccMessage *m) -> void
     {
         return (GetInstance()._iFreePool(m));
     }
-
     static auto getMsgQueue() -> _tDccQueue * { return (GetInstance()._igetMsgQueue()); }
-
-    /**
-     * @brief pushes a DccMessage struct into the designated queue
-     *
-     * @param q : incomming or outgoing queue
-     * @param packet : DccMessage struct to be pushed and send over the wire
-     */
-    static auto queue(queueType q, DccMessage *packet) -> void
-    {
-        GetInstance()._iqueue(q, packet);
-    }
+    static auto queue(DccMessage *m) -> void { GetInstance()._iqueue(m); }
     static auto queue(uint16_t c, csProtocol p, char *msg) -> void { GetInstance()._iqueue(c, p, msg); }
     static auto recieve(DccMessage *m) -> void { GetInstance()._iRecieve(m); } // check the transport to see if tere is something for us
     static auto write(DccMessage *m) -> void { GetInstance()._iWrite(m); }     // check the transport to see if tere is something for us to send back

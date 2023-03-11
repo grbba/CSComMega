@@ -29,7 +29,7 @@
 // #define DCCI_NW true  // enable this on the ESP handling the connectivity
 #define DCCI_CS true // set to true if compiles for the commandstation
 
-#define MAX_QUEUE_SIZE 10
-#define MAX_MESSAGE_SIZE 64
+#define MAX_QUEUE_SIZE 6
+#define MAX_MESSAGE_SIZE 48
 
 #endif
