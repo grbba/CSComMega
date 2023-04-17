@@ -42,6 +42,19 @@ DCCNetwork *network = NetworkInterface::getDCCNetwork();
 #include "DccExInterface.h"
 #include "DCSICommand.h"
 
+#include "PSR.h"
+#include "PSRMessage.h"
+
+// void recvMessage(Serializable *msgptr)
+// {
+//     DccMessage *dm = reinterpret_cast<DccMessage *>(msgptr);
+//     INFO(F("[%d] Recieved: "), freeMemory());
+//     dm->print();
+// }
+
+void foofunc2(Serializable *msg);
+PSR<DccMessage, PSR_BUFFER_SIZE> proxy(&Serial1, 57600, &foofunc2); // create a proxy for DccMessages over Serial1 at 115200 baud and a 128 byte r/w buffer size
+
 /**
  * @brief callback function upon reception of a DccMessage. Adds the message into the incomming queue
  * Queue elements will be processed then in the recieve() function called form the loop(). This function is on both sides
@@ -49,14 +62,17 @@ DCCNetwork *network = NetworkInterface::getDCCNetwork();
  * Wifi or the ethernet connection( or serial )
  * @param msg DccMessage object deliverd by MsgPacketizer
  */
-void foofunc2(DccMessage msg)
+void foofunc2(Serializable *msg)
+// void foofunc2(DccMessage msg)
 {
+    DccMessage *dm = reinterpret_cast<DccMessage *>(msg);
+
     // test if queue isn't full
     if (!DccExInterface::getMsgQueue()->isFull())
     {
         // allocate a DccMessage from the pool and copy the contents recieved
         DccMessage *m = DccExInterface::getMsg();
-        DccMessage::copy(m, &msg);
+        *m = *dm; // DccMessage::copy(m, &msg);
         m->process = DccExInterface::recieve;
 
         // TRC(F("Recieved from [%s]:[%d:%d:%d:%d]: %s" CR),
@@ -82,12 +98,16 @@ void foofunc2(DccMessage msg)
  */
 auto DccExInterface::_isetup(HardwareSerial *_s, uint32_t _speed) -> void
 {
+
     INFO(F("Setting up DccEx Network interface connection ..." CR));
-    
-    s = _s;          // Serial port used for com depends on the wiring
-    speed = _speed;  // speed of the connection
-    s->begin(speed); // start the serial port at the given baud rate
-    MsgPacketizer::subscribe(*s, recv_index, &foofunc2);
+
+    s = _s;         // Serial port used for com depends on the wiring == ignored
+    speed = _speed; // speed of the connection == ignored as only needed in the PSR
+    // s->begin(speed); // start the serial port at the given baud rate == done in the PSR
+
+    proxy.setup();
+
+    // MsgPacketizer::subscribe(*s, recv_index, &foofunc2);
 
     init = true; // interface has been initatlized
     INFO(F("Setup of %s done ..." CR), DccExInterface::decode(static_cast<comStation>(sta)));
@@ -98,15 +118,15 @@ auto DccExInterface::_isetup(HardwareSerial *_s, uint32_t _speed) -> void
  */
 auto DccExInterface::_iRecieve(DccMessage *m) -> void
 {
-    TRC(F("Recieved from [%s]:[%d:%d:%d:%d]: %s" CR), DccExInterface::decode(comStation(m->sta)), DccExInterface::getMsgQueue()->size(), m->mid, m->client, m->p, m->msg.c_str());
+    TRC(F("Recieved from [%s]:[%d:%d:%d:%d]: %s" CR), DccExInterface::decode(comStation(m->payload.sta)), DccExInterface::getMsgQueue()->size(), m->payload.mid, m->payload.client, m->payload.p, m->payload.msg);
     // if recieved from self then we have an issue
-    if (m->sta == sta)
+    if (m->payload.sta == sta)
     {
         ERR(F("Wrong sender; Msg seems to have been send to self; Msg has been ignored" CR));
         return;
     }
     INFO(F("Sending to handler" CR));
-    MEMC(handlers[m->p](*m););
+    MEMC(handlers[m->payload.p](*m););
     return;
 }
 
@@ -123,14 +143,14 @@ void DccExInterface::_iqueue(uint16_t c, csProtocol p, char *msg)
     // MsgPack::str_t s = MsgPack::str_t(msg);
     DccMessage *m = DccExInterface::getMsg();
 
-    m->sta = static_cast<int>(sta);
-    m->client = c;
-    m->p = static_cast<int>(p);
-    m->msg = MsgPack::str_t(msg); // s;
-    m->mid = seq++;
+    m->payload.sta = static_cast<int>(sta);
+    m->payload.client = c;
+    m->payload.p = static_cast<int>(p);
+    strcpy(m->payload.msg, msg); //  = MsgPack::str_t(msg);
+    m->payload.mid = seq++;
     m->process = DccExInterface::write;
 
-    INFO(F("Queuing [%d:%d:%s]:[%s]" CR), m->mid, m->client, decode((csProtocol)m->p), m->msg.c_str());
+    INFO(F("Queuing [%d:%d:%s]:[%s]" CR), m->payload.mid, m->payload.client, decode((csProtocol)m->payload.p), m->payload.msg);
 
     msgQueue.push(m);
 
@@ -138,7 +158,7 @@ void DccExInterface::_iqueue(uint16_t c, csProtocol p, char *msg)
 }
 void DccExInterface::_iqueue(DccMessage *m)
 {
-    INFO(F("Queuing [%d:%d:%s]:[%s]" CR), m->mid, m->client, decode((csProtocol)m->p), m->msg.c_str());
+    INFO(F("Queuing [%d:%d:%s]:[%s]" CR), m->payload.mid, m->payload.client, decode((csProtocol)m->payload.p), m->payload.msg);
     msgQueue.push(m);
     return;
 }
@@ -149,8 +169,9 @@ void DccExInterface::_iqueue(DccMessage *m)
  */
 void DccExInterface::_iWrite(DccMessage *m)
 {
-    TRC(F("Sending [%d:%d:%d]: %s" CR), m->mid, m->client, m->p, m->msg.c_str());
-    MsgPacketizer::send(*s, 0x34, *m);
+    TRC(F("Sending [%d:%d:%d]: %s" CR), m->payload.mid, m->payload.client, m->payload.p, m->payload.msg);
+    proxy.send(m);
+    // MsgPacketizer::send(*s, 0x34, *m);
     return;
 }
 
@@ -160,12 +181,11 @@ void DccExInterface::_iLoop()
     if (!DccExInterface::getMsgQueue()->isEmpty())
     {
         DccMessage *m = DccExInterface::getMsgQueue()->pop();
-        TRC(F("Processing :[%d:%d:%d:%d]: %s" CR), DccExInterface::getMsgQueue()->size(), m->mid, m->client, m->p, m->msg.c_str());
+        TRC(F("Processing :[%d:%d:%d:%d]: %s" CR), DccExInterface::getMsgQueue()->size(), m->payload.mid, m->payload.client, m->payload.p, m->payload.msg);
         m->process(m); // that will call either recieve() or write()
         DccExInterface::releaseMsg(m);
     }
-    
-    MsgPacketizer::update(); // send back replies and get commands/trigger the callback
+    proxy.loop(); // MsgPacketizer::update(); // send back replies and get commands/trigger the callback
 };
 
 auto DccExInterface::_iDecode(csProtocol p) -> const char *
@@ -176,10 +196,18 @@ auto DccExInterface::_iDecode(csProtocol p) -> const char *
     if ((p >= UNKNOWN_CS_PROTOCOL) || (p < 0))
     {
         ERR(F("Cannot decode csProtocol %d returning unkown"), p);
+#ifdef ESP32
+        strcpy(decodeBuffer, csProtocolNames[UNKNOWN_CS_PROTOCOL]);
+#else
         strcpy_P(decodeBuffer, (char *)pgm_read_word(&(csProtocolNames[UNKNOWN_CS_PROTOCOL])));
+#endif
         return decodeBuffer;
     }
+#ifdef ESP32
+    strcpy(decodeBuffer, csProtocolNames[p]);
+#else
     strcpy_P(decodeBuffer, (char *)pgm_read_word(&(csProtocolNames[p])));
+#endif
     return decodeBuffer;
 }
 auto DccExInterface::_iDecode(comStation s) -> const char *
@@ -191,17 +219,26 @@ auto DccExInterface::_iDecode(comStation s) -> const char *
     if ((s >= _UNKNOWN_STA) || (s < 0))
     {
         ERR(F("Cannot decode comStation %d returning unkown"), s);
+#ifdef ESP32
+        strcpy(decodeBuffer, comStationNames[_UNKNOWN_STA]);
+#else
         strcpy_P(decodeBuffer, (char *)pgm_read_word(&(comStationNames[_UNKNOWN_STA])));
+#endif
         return decodeBuffer;
     }
     // TRC(F("Decoding comStation:[%d]" CR), (int) s);
+#ifdef ESP32
+    strcpy(decodeBuffer, comStationNames[s]);
+#else
     strcpy_P(decodeBuffer, (char *)pgm_read_word(&(comStationNames[s])));
+#endif
+
     return decodeBuffer;
 }
 
 auto DccExInterface::dccexHandler(DccMessage &m) -> void
 {
-    INFO(F("Processing message from [%s]:[%s]" CR), DccExInterface::decode(static_cast<comStation>(m.sta)), m.msg.c_str());
+    INFO(F("Processing message from [%s]:[%s]" CR), DccExInterface::decode(static_cast<comStation>(m.payload.sta)), m.payload.msg);
 
     // send to the DCC part the commands and get the reply
     // TODO we need to check the length of the response comming back from the CS and ev send
@@ -209,16 +246,16 @@ auto DccExInterface::dccexHandler(DccMessage &m) -> void
 
     char buffer[MAX_MESSAGE_SIZE] = {0};
 
-    sprintf(buffer, "reply from CS: %d:%d:%s", m.client, m.mid, m.msg.c_str());
-    DccExInterface::queue(m.client, _REPLY, buffer); //
+    sprintf(buffer, "reply from CS: %d:%d:%s", m.payload.client, m.payload.mid, m.payload.msg);
+    DccExInterface::queue(m.payload.client, _REPLY, buffer); //
 };
 
 auto DccExInterface::wiThrottleHandler(DccMessage &m) -> void{};
 auto DccExInterface::ctrlHandler(DccMessage &m) -> void
 {
     // where does the message come from
-    INFO(F("Recieved CTRL message from %s" CR), DccExInterface::decode(static_cast<comStation>(m.sta)));
-    switch (m.sta)
+    INFO(F("Recieved CTRL message from %s" CR), DccExInterface::decode(static_cast<comStation>(m.payload.sta)));
+    switch (m.payload.sta)
     {
     case _DCCSTA:
     {
@@ -227,8 +264,8 @@ auto DccExInterface::ctrlHandler(DccMessage &m) -> void
     }
     case _NWSTA:
     {
-        TRC(F("Executing CTRL message %s" CR), m.msg.c_str());
-        Cmds.run(m.msg.c_str());
+        TRC(F("Executing CTRL message %s" CR), m.payload.msg);
+        Cmds.run(m.payload.msg);
         // we are on the CommandStation handling a message from the NetworkStation
         // so the message shall have the form <! opcode yy zz >
         // get the opcode and get the function to handle it from the opcode hashmap
@@ -241,26 +278,21 @@ auto DccExInterface::ctrlHandler(DccMessage &m) -> void
 };
 auto DccExInterface::notYetHandler(DccMessage &m) -> void
 {
-    if (m.p == UNKNOWN_CS_PROTOCOL)
+    if (m.payload.p == UNKNOWN_CS_PROTOCOL)
     {
         ERR(F("Unkown Message protocol; Message ignored" CR));
     }
     else
     {
-        WARN(F("%s Message protocol not supported on %s; Message ignored" CR), DccExInterface::decode((csProtocol)m.p), DccExInterface::decode((comStation)m.sta));
+        WARN(F("%s Message protocol not supported on %s; Message ignored" CR), DccExInterface::decode((csProtocol)m.payload.p), DccExInterface::decode((comStation)m.payload.sta));
     }
     return;
 };
-auto DccExInterface::_iSize() -> size_t
-{
-    return msgQueue.size();
-}
-
 #ifndef DCCI_CS // only valid on the NW station
-auto DccExInterface::replyHandler(DccMessage m) -> void
+auto DccExInterface::replyHandler(DccMessage &m) -> void
 {
 
-    INFO(F("Processing reply from the CommandStation for client [%d]..." CR), m.client);
+    INFO(F("Processing reply from the CommandStation for client [%d]..." CR), m.payload.client);
 
     // search for the client in the network ... There must be a better way
     // and send the reply now to the connected client ...
@@ -277,10 +309,10 @@ auto DccExInterface::replyHandler(DccMessage m) -> void
             WiFiTransport *wt = static_cast<WiFiTransport *>(network->transports[i]);
             if (wt->getActive() == 0)
                 break; // nothing to be done no clients
-            WiFiClient wtc = wt->getClient(m.client);
+            WiFiClient wtc = wt->getClient(m.payload.client);
             if (wtc.connected())
             {
-                wtc.write(m.msg.c_str());
+                wtc.write(m.payload.msg);
                 wtc.write(CR); // CR -> just so that we have a nl in the terminal ...
             }
             else
@@ -294,10 +326,10 @@ auto DccExInterface::replyHandler(DccMessage m) -> void
             EthernetTransport *et = static_cast<EthernetTransport *>(network->transports[i]);
             if (et->getActive() == 0)
                 break; // nothing to be done no clients
-            EthernetClient etc = et->getClient(m.client);
+            EthernetClient etc = et->getClient(m.payload.client);
             if (etc.connected())
             {
-                etc.write(m.msg.c_str());
+                etc.write(m.payload.msg);
                 etc.write(CR);
             }
             else
@@ -314,11 +346,16 @@ auto DccExInterface::replyHandler(DccMessage m) -> void
         }
     }
 }
-auto DccExInterface::diagHandler(DccMessage m) -> void
+auto DccExInterface::diagHandler(DccMessage &m) -> void
 {
-    INFO(F("Recieved DIAG: %s" CR), m.msg.c_str());
+    INFO(F("Recieved DIAG: %s" CR), m.payload.msg);
 };
 #endif
+
+auto DccExInterface::_iSize() -> size_t
+{
+    return msgQueue.size();
+}
 
 DccExInterface &DccExInterface::GetInstance()
 {

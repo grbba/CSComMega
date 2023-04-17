@@ -19,16 +19,18 @@
 #define dccex_interface_h
 
 #include <Arduino.h>
+#ifdef DCCI_CS
 #include <avr/pgmspace.h>
+#endif
 #include <DCSIlog.h>
 #ifndef DCCI_CS
 #include <Transport.h>
 #endif
 
 #include <DCSIconfig.h>
-#include "MsgPacketizer.h"
 #include "Queue.h"
 #include "Pool.h"
+#include "PSRMessage.h"
 
 constexpr char protocol01[] PROGMEM = "DccEx";
 constexpr char protocol02[] PROGMEM = "WiThrottle";
@@ -67,9 +69,9 @@ typedef enum
  */
 typedef enum
 {
-    SRL, // serial
-    I2C, // i2c
-    SPI, // spi
+    _SRL, // serial
+    _I2C, // i2c
+    _SPI, // spi
     UNKNOWN_COM_PROTOCOL
 } comProtocol;
 
@@ -110,46 +112,6 @@ typedef enum
         {dccexHandler, notYetHandler, notYetHandler, notYetHandler, notYetHandler, notYetHandler, ctrlHandler};
 #endif
 //      _DCCEX          _WITHROTTLE,    _REPLY        _DIAG           _MQTT           _HTTP           _CTRL
-
-/**
- * @brief DccMessage is the struct serailazed and send over the
- *        wire to either the command or network station
- *
- */
-class DccMessage
-{
-public:
-    int8_t sta;         // station allowed values are comming from the comStation enum
-                        // but as msgpack doesn't really work on enums(?)
-    int16_t mid;        // message id; sequence number
-    int8_t client;      // client id ( socket number from Wifi or Ethernet to be checked if we need to also have the original channel)
-    int8_t p;           // either JMRI or WITHROTTLE in order to understand the content of the msg payload
-    MsgPack::str_t msg; // going to CS this is a command and a reply on return
-    MSGPACK_DEFINE(sta, mid, client, p, msg);
-
-    // function pointer to either the write function(sending the message to the otherside over the com link) or the recieve function(i.e.processing the recieved message)
-    using _tcsProcessHandler = void (*)(DccMessage *);
-    _tcsProcessHandler process;
-
-    static void copy(DccMessage *dest, DccMessage *src)
-    {
-        dest->sta = src->sta;
-        dest->mid = src->mid;
-        dest->client = src->client;
-        dest->p = src->p;
-        dest->msg = src->msg;
-    }
-    DccMessage()
-    {
-        TRC(F("DccMessage created %x" CR), this);
-        msg.reserve(MAX_MESSAGE_SIZE); // reserve upfront space; requires that we check that no command exceeds MAX_MESSAGE_SIZE
-                                       // avoids heap memory fragmentation and the whole reciev send process runs in constant memory
-    }
-    ~DccMessage()
-    {
-        TRC(F("DccMessage deleted %x" CR), this);
-    }
-};
 
 typedef Pool<DccMessage, MAX_QUEUE_SIZE> _tDccPool;     // set to max queue size but actual use may require less items in the queue
 typedef Queue<DccMessage *, MAX_QUEUE_SIZE> _tDccQueue; // only manage pointers to the messages in the pool in the queue
@@ -224,6 +186,7 @@ private:
 public:
     DccExInterface(DccExInterface &other) = delete;
     void operator=(const DccExInterface &) = delete;
+
     static DccExInterface &GetInstance();
 
     static auto getMsg() -> DccMessage *

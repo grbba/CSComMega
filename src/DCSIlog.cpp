@@ -27,7 +27,7 @@
 #include "DCSIlog.h"
 #include <DCSIconfig.h>
 #include <StreamUtils.h>
-#include <MsgPacketizer.h>
+#include <PSRMessage.h>
 #include <DccExInterface.h>
 
 #ifdef DCCI_CS // only for the commandstation
@@ -71,21 +71,21 @@ void DCSILog::diag(const FSH *input...)
   // send(&stream,input,args);           // send a stream whatever to get he output from the DIAG
   stream.print(F(" *>\n")); // then add postfix print(F(" *>\n"));
 
-  diagMsg->client = 0; // TODO make sure we get the right client add CTRL messsage to set the client in
+  diagMsg->payload.client = 0; // TODO make sure we get the right client add CTRL messsage to set the client in
                        // TODO DCSIlog object
 
   if (stream.str().length() > MAX_MESSAGE_SIZE)
   {
     WARN(F("Warning DIAG message has been truncated before being send")); // warn that ths string will be truncated (ev ad an ellipse to show this ...)
-    diagMsg->msg = stream.str().substring(0, MAX_MESSAGE_SIZE - 1);
+    strcpy(diagMsg->payload.msg,stream.str().substring(0, MAX_MESSAGE_SIZE - 1).c_str());
   }
   else
   {
-    diagMsg->msg = stream.str().substring(0, stream.str().length() - 1);
+    strcpy(diagMsg->payload.msg, stream.str().substring(0, stream.str().length() - 1).c_str());
   }
 
-  INFO(F("Sending Diagnostics: %s" CR), diagMsg->msg.c_str());
-  diagMsg->p = _DIAG;
+  INFO(F("Sending Diagnostics: %s" CR), diagMsg->payload.msg);
+  diagMsg->payload.p = _DIAG;
   DccExInterface::queue(diagMsg); // queue the msg to be send with protocol DIAG
   // DccExInterface::queue(OUT, _DIAG, diagMsg); // queue the msg to be send with protocol DIAG
 
@@ -108,10 +108,10 @@ void DCSILog::flow(char t, int ec)
 
   sprintf(buffer, "%c%d", t, ec);
   stream.print(buffer);
-  diagMsg->msg = stream.str();
-  diagMsg->client = 0;
-  diagMsg->sta = _DCCSTA;
-  diagMsg->p = _CTRL;
+  strcpy(diagMsg->payload.msg, stream.str().c_str());
+  diagMsg->payload.client = 0;
+  diagMsg->payload.sta = _DCCSTA;
+  diagMsg->payload.p = _CTRL;
   DccExInterface::queue(diagMsg); // queue the msg to be send with protocol CTRL
 }
 
