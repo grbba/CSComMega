@@ -50,24 +50,24 @@ typedef std::string String;
  *
  */
 
-template <typename BackEnd>
-class ByteStreamWriter : public Writer
+template <typename BackEnd, typename M>
+class ByteStreamWriter : public Writer<M>
 {
 
         char *begin = (char *)"[[";
         char *end = (char *)"]]";
         bool buffered; // write to the provided buffer before sending
                        // in case of false writes will be executed directly to the backend
-        BackEnd *_ws; // Backend to write to
+        BackEnd *_ws;  // Backend to write to
 
         char tbuffer[MAX_MESSAGE_BUFFER] = {0};
         unsigned char buffer[MAX_MESSAGE_BUFFER] = {0};
         int bpos = 0;
 
-        virtual void writeBegin();               // start of a message block
-        virtual void writeEnd();                 // end of a message block
-        virtual void writePayload(unsigned char*, size_t);
-        virtual void writeRoot(Serializable *);
+        virtual void writeBegin(); // start of a message block
+        virtual void writeEnd();   // end of a message block
+        virtual void writePayload(unsigned char *, size_t);
+        virtual void writeRoot(M *);
 
 public:
         ByteStreamWriter(){};
@@ -86,20 +86,20 @@ public:
         }
         void printBuffer()
         {
-               INFO(F("Serialized buffer %s\n"), buffer);  
+                INFO(F("Serialized buffer %s\n"), buffer);
         }
 };
 
 // start of a message block
-template <typename BackEnd>
-void ByteStreamWriter<BackEnd>::writeBegin()
+template <typename BackEnd, typename M>
+void ByteStreamWriter<BackEnd, M>::writeBegin()
 {
         // INFO(F("%s"),begin);
         if (buffered)
         {
-                bpos = 0; // reset buffer pos
+                bpos = 0;                              // reset buffer pos
                 memset(buffer, 0, MAX_MESSAGE_BUFFER); // reset the buffer to 0
-                strcat((char *) &buffer[bpos], begin);
+                strcat((char *)&buffer[bpos], begin);
                 bpos = bpos + strlen(begin);
         }
         else
@@ -112,13 +112,13 @@ void ByteStreamWriter<BackEnd>::writeBegin()
         }
 };
 // end of a message block
-template <typename BackEnd>
-void ByteStreamWriter<BackEnd>::writeEnd()
+template <typename BackEnd, typename M>
+void ByteStreamWriter<BackEnd, M>::writeEnd()
 {
         // INFO(F("%s\n"),end);
         if (buffered)
         {
-                strcat((char *) &buffer[bpos], end);
+                strcat((char *)&buffer[bpos], end);
                 bpos = bpos + strlen(end);
 #if defined(ESP32) || defined(ARDUINO)
                 _ws->write((char *)buffer);
@@ -137,28 +137,39 @@ void ByteStreamWriter<BackEnd>::writeEnd()
         _ws->flush(); // in all cases write out at the end of the serialized object
 };
 
-template <typename BackEnd>
-void ByteStreamWriter<BackEnd>::writePayload( unsigned char *pl, size_t s) {
-      
+template <typename BackEnd, typename M>
+void ByteStreamWriter<BackEnd, M>::writePayload(unsigned char *pl, size_t s)
+{
 
-        // for(unsigned int k = 0; k < s; k++) { INFO(F(" %d"), *(pl+k)); }
-
+        // for (unsigned int k = 0; k < s; k++)
+        // {
+        //         // INFO(F(" %d"), *(pl+k));
+        //         Serial.print(" ");
+        //         Serial.print(*(pl + k));
+        // }
+        // Serial.println();
         // INFO(F("\n"));
-        if(buffered) {
-                memcpy(buffer+bpos,pl,s); // write all to a buffer 
-        } else {
-                // int s1 = 
-                _ws->write(pl,s);   // write direct 
+        if (buffered)
+        {
+                memcpy(buffer + bpos, pl, s); // write all to a buffer
+        }
+        else
+        {
+                // int s1 =
+                _ws->write(pl, s); // write direct
                 // INFO(F(" written: %d/%d bytes\n"), s1,s);
         }
 }
 
-template <typename BackEnd>
-void ByteStreamWriter<BackEnd>::writeRoot(Serializable *obj)
+template <typename BackEnd, typename M>
+void ByteStreamWriter<BackEnd, M>::writeRoot(M *obj)
 {
+        TRC(F("Writer writing message " CR));
+        obj->print();
         writeBegin();
         obj->write(this);
         writeEnd();
+        TRC(F("Writer writing message done " CR));
 };
 
 #endif

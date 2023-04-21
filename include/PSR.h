@@ -36,7 +36,7 @@
 
 #define PSR_BUFFER_SIZE 256
 
-template <typename T, size_t S> // T is the message object to serialize and send
+template <typename M, size_t S> // M is the message object to serialize and send
 class PSR
 {
 private:
@@ -47,7 +47,7 @@ private:
   // Create streams for reading and writing
   WriteBufferingStream _WbufferedSerial{*port, S};
   ReadBufferingStream _RbufferedSerial{*port, S};
-  Writer *mw;
+  Writer<M> *mw;
   Reader *mr;
 
 public:
@@ -58,7 +58,7 @@ public:
     callback = cb;
   };
 
-  void send(Serializable *m)
+  void send(M *m)
   {                   // remember T must be a Serializable
     mw->writeRoot(m); // send the message
   }
@@ -69,15 +69,16 @@ public:
     port->begin(baudRate);
     delay(2000);
     INFO(F("Started port\n"));
-    mw = new ByteStreamWriter<WriteBufferingStream>(&_WbufferedSerial, false);
+    mw = new ByteStreamWriter<WriteBufferingStream, M>(&_WbufferedSerial, false);
     INFO(F("Created Writer\n")); // write directly to the backend
-    mr = new ByteStreamReader<ReadBufferingStream, T>(&_RbufferedSerial);
+    mr = new ByteStreamReader<ReadBufferingStream, M>(&_RbufferedSerial);
     INFO(F("Created Reader\n")); // read the incomming data into the message structure
     mr->subscribe(callback);
     INFO(F("Registerd Callback\n"));
     INFO(F("Proxy setup done\n"));
   };
 
+  // loop over the redaer looking for input from the recieving client (Serial1 for the moment )
   void loop()
   {
     mr->loop();

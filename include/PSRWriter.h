@@ -38,13 +38,14 @@ typedef std::string String;
 
 class Serializable;
 
+template <typename M>
 class Writer
 {
 public:
-    virtual void writeBegin() = 0;               // start of a serialzed object
-    virtual void writeEnd() = 0;                 // end of a serialzed object
+    virtual void writeBegin() = 0; // start of a serialzed object
+    virtual void writeEnd() = 0;   // end of a serialzed object
     virtual void writePayload(unsigned char *, size_t) = 0;
-    virtual void writeRoot(Serializable *) = 0;
+    virtual void writeRoot(M *) = 0; // write out the entire message M
 };
 
 #endif

@@ -42,8 +42,8 @@ DCCNetwork *network = NetworkInterface::getDCCNetwork();
 #include "DccExInterface.h"
 #include "DCSICommand.h"
 
-#include "PSR.h"
-#include "PSRMessage.h"
+#include <PSR.h>
+#include <PSRMessage.h>
 
 // void recvMessage(Serializable *msgptr)
 // {
@@ -75,10 +75,10 @@ void foofunc2(Serializable *msg)
         *m = *dm; // DccMessage::copy(m, &msg);
         m->process = DccExInterface::recieve;
 
-        // TRC(F("Recieved from [%s]:[%d:%d:%d:%d]: %s" CR),
-        //     DccExInterface::decode(static_cast<comStation>(m->sta)),
-        //     DccExInterface::getQueue(IN)->size(),
-        //     m->mid, m->client, m->p, m->msg.c_str());
+        TRC(F("Callback recieved from [%s]:[%d:%d:%d:%d]: %s" CR),
+            DccExInterface::decode(static_cast<comStation>(m->payload.sta)),
+            DccExInterface::getMsgQueue()->size(),
+            m->payload.mid, m->payload.client, m->payload.p, m->payload.msg);
 
         // push the message into the message queue
         DccExInterface::getMsgQueue()->push(m);
@@ -141,16 +141,24 @@ void DccExInterface::_iqueue(uint16_t c, csProtocol p, char *msg)
 {
 
     // MsgPack::str_t s = MsgPack::str_t(msg);
-    DccMessage *m = DccExInterface::getMsg();
+    DccMessage *m = DccExInterface::getMsg(); // get a message from the pool
 
-    m->payload.sta = static_cast<int>(sta);
+    if (m == nullptr)
+    {
+        ERR(F("No more messages available in the pool" CR));
+        return;
+    } // TODO test for null messgage i.e. no more elemens available in the pool
+
+    m->payload.sta = static_cast<uint8_t>(sta);
     m->payload.client = c;
-    m->payload.p = static_cast<int>(p);
+    m->payload.p = static_cast<uint8_t>(p);
     strcpy(m->payload.msg, msg); //  = MsgPack::str_t(msg);
     m->payload.mid = seq++;
     m->process = DccExInterface::write;
 
-    INFO(F("Queuing [%d:%d:%s]:[%s]" CR), m->payload.mid, m->payload.client, decode((csProtocol)m->payload.p), m->payload.msg);
+    m->print();
+
+    INFO(F("Queuing#1" CR)); //  [%d:%d:%s]:[%s]" CR), m->payload.mid, m->payload.client, decode((csProtocol)m->payload.p), m->payload.msg);
 
     msgQueue.push(m);
 
@@ -158,7 +166,8 @@ void DccExInterface::_iqueue(uint16_t c, csProtocol p, char *msg)
 }
 void DccExInterface::_iqueue(DccMessage *m)
 {
-    INFO(F("Queuing [%d:%d:%s]:[%s]" CR), m->payload.mid, m->payload.client, decode((csProtocol)m->payload.p), m->payload.msg);
+
+    INFO(F("Queuing#2 [%d:%d:%s]:[%s]" CR), m->payload.mid, m->payload.client, decode((csProtocol)m->payload.p), m->payload.msg);
     msgQueue.push(m);
     return;
 }
@@ -177,7 +186,6 @@ void DccExInterface::_iWrite(DccMessage *m)
 
 void DccExInterface::_iLoop()
 {
-
     if (!DccExInterface::getMsgQueue()->isEmpty())
     {
         DccMessage *m = DccExInterface::getMsgQueue()->pop();
@@ -191,6 +199,7 @@ void DccExInterface::_iLoop()
 auto DccExInterface::_iDecode(csProtocol p) -> const char *
 {
     // empty the buffer
+
     memset(decodeBuffer, 0, sizeof(decodeBuffer));
     // need to check if p is a valid enum value
     if ((p >= UNKNOWN_CS_PROTOCOL) || (p < 0))

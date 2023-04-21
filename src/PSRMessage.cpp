@@ -33,14 +33,17 @@
 #include "PSRWriter.h"
 #include "DCSIlog.h"
 
-void DccMessage::write(Writer *w)
+// A DccMessage instance knows how to write/serialize itself
+void DccMessage::write(Writer<DccMessage> *w)
 {
+        TRC(F("DccMessage::write" CR));
         payload.mlen = strlen(payload.msg);             // brutto grösse
-        size_t s = ps - (MAX_PLMSG_LEN - payload.mlen); // netto grösse
+        size_t s = (ps - MAX_PLMSG_LEN) + payload.mlen; // netto grösse
+        TRC(F("payload size to write %d - msg size %d" CR), s, payload.mlen);
         unsigned char *pl = reinterpret_cast<unsigned char *>(&payload);
-        // INFO(F("before write payload "));
+        TRC(F("before write payload %s" CR), payload.msg);
         w->writePayload(pl, s);
-        // INFO(F("after write payload "));
+        TRC(F("DccMessage::written" CR));
 };
 
 void DccMessage::read(Reader *r)
@@ -49,3 +52,6 @@ void DccMessage::read(Reader *r)
         // unsigned char *pl = reinterpret_cast<unsigned char *>(&payload);
         // r->readPayload(pl);
 };
+
+// <R 1 1 1> :: payload.mlen = 9
+// s = 38 - (32-9)

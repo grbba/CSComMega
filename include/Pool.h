@@ -26,7 +26,7 @@ private:
             }
         }
         // no element in the pool is available
-        return &nil;
+        return nullptr; // &nil;
     }
 
 public:

@@ -43,18 +43,18 @@ typedef std::string String;
  * @brief Abstract class; The message to send needs to implement the write & read functions
  *
  */
-class Serializable
-{
-public:
-    virtual void read(Reader *) = 0;
-    virtual void write(Writer *) = 0;
-    // static Serializable *newByName(char *); // needed for objects within objects
-};
+// class Serializable
+// {
+// public:
+//     virtual void read(Reader *) = 0;
+//     virtual void write(Writer *) = 0;
+//     // static Serializable *newByName(char *); // needed for objects within objects
+// };
 
 // max no of charsin a text based attribute
 #define MAX_PLMSG_LEN 32
 
-class DccMessage : public Serializable
+class DccMessage // : public Serializable
 {
 private:
     struct _sPayload
@@ -78,7 +78,7 @@ public:
     _sPayload payload;
 
     void read(Reader *r);
-    void write(Writer *w);
+    void write(Writer<DccMessage> *w);
 
     // Assignment Operator overload
     // DccMessage Dest = DccMessage Src
